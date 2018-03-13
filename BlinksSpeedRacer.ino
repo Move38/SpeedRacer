@@ -11,7 +11,9 @@
  */
 
 #define CAR_FADE_IN_DIST   0.20   // kind of like headlights
-#define CAR_FADE_OUT_DIST  0.50   // kind of like a taillight trail
+#define CAR_FADE_OUT_DIST  1.25   // kind of like a taillight trail
+
+#define MAX_CAR_SPEED      0.25   
 
 // TODO: make fade in/out dist variable based on speed...
 
@@ -20,7 +22,17 @@
 Timer updateCarTimer;
 
 float carPosition = -CAR_FADE_IN_DIST;
-float carSpeed = 0.05;  // travels this far every update delay ms
+float carSpeed = 0.03;  // travels this far every update delay ms
+
+/*
+   This map() functuion is now in Arduino.h in /dev
+   It is replicated here so this skect can compile on older API commits
+*/
+
+float map_f(float x, float in_min, float in_max, float out_min, float out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
  
 void setup() {
   // put your setup code here, to run once:
@@ -29,6 +41,15 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
+
+  if( buttonPressed() ) {
+    // change car speed
+    carSpeed += 0.01;
+
+    if( carSpeed > MAX_CAR_SPEED ) {
+      carSpeed = 0.01;
+    }
+  }
 
   if( updateCarTimer.isExpired() ) {
     updateCarTimer.set( CAR_UPDATE_DELAY_MS );
@@ -41,11 +62,18 @@ void loop() {
     }
     else if(carPosition >= 1.0 + CAR_FADE_OUT_DIST) {
       // car is now completely passed us
+      
       // for testing purposes, just loop back to where we started
-      carPosition = -CAR_FADE_IN_DIST;
+      if(carPosition >= 1.0 + 2 * CAR_FADE_OUT_DIST) {
+        carPosition = -CAR_FADE_IN_DIST;
+      }
     }
   }
 
+  // display the car
+  FOREACH_FACE( f ) {
+    setFaceColor( f, getFaceColorBasedOnCarPossition( f, carPosition, 0, 3 ) );
+  }
 }
 
 /*
@@ -54,6 +82,7 @@ void loop() {
  * 
  */
 Color getFaceColorBasedOnCarPossition(byte face, float pos, byte from, byte to) {
+  byte hue, saturation, brightness;
    
   // are we going straight, turning left, or turning right
   if ( from == 0 && to == 3 ||    // if ( (from + 6 - to) % 6 == 3 )
@@ -63,12 +92,47 @@ Color getFaceColorBasedOnCarPossition(byte face, float pos, byte from, byte to) 
        from == 4 && to == 1 ||
        from == 5 && to == 2 ) {
 
-        // we are traveling straight
-  }
-  else if ( from == 0 && to == 3) { 
-  }
-  else if ( ) {
+    float center;
+    switch(face) {  // face + from % 6 ... rotate to the correct direction
+      case 0: center = 0.0;  break;
+      case 1: center = 0.25; break;
+      case 2: center = 0.75; break;
+      case 3: center = 1.0;  break;
+      case 4: center = 0.75; break;
+      case 5: center = 0.25; break;
+    }
+
+    // we are traveling straight
+    if( pos < -CAR_FADE_IN_DIST + center || pos > CAR_FADE_OUT_DIST + center ) {
+      // out of range for us...
+      brightness = 0;
+    }
+    
+    else if( pos < center ) {
+        // fade in
+        brightness = (byte) map_f(pos, -CAR_FADE_IN_DIST + center, center, 0, 255);
+    }
+
+    else if( pos == center ) {
+        brightness = 255;
+    }
+    
+    else if( pos > center ) {
+      // fade out
+      brightness = (byte) map_f(pos, center, CAR_FADE_OUT_DIST + center, 255, 0);
+    }
     
   }
+  
+  else if ( (from + 6 - to) % 6 == 2 ) { // if ( (from + 6 - to) % 6 == 2 )
+    // we are turning right
+    
+  }
+  
+  else if ( (from + 6 - to) % 6 == 4 ) {
+    // we are turning left
+  }
+
+  return makeColorHSB(0, 0, brightness);
 }
 
