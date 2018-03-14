@@ -10,17 +10,32 @@
  *  Pass the score from Blink to Blink on each transition
  */
 
+enum state_t { 
+    START,          // Start the game and reset the speeds
+    HIGHWAY,        // Open Highway 
+    CAR,            // Highway with the car currently on it
+    SEND_CAR,       // Send car to the next open highway    
+    CRASH           // No open hightway to reach, we crashed *KABOOM* Hollywood style or Gangnam Style, either acceptable here
+};
+
+static state_t state = HIGHWAY; 
+
+#define NO_FACE FACE_COUNT     // Use FACE_COUNT as a match-none special value for sourceFace
+                               // We use this when the explosion was manually started so no
+                               // face is the source. 
+
 #define CAR_FADE_IN_DIST   0.20   // kind of like headlights
 #define CAR_FADE_OUT_DIST  1.25   // kind of like a taillight trail
 
+#define START_CAR_SPEED    0.03   
 #define MAX_CAR_SPEED      0.25   
 
 // TODO: make fade in/out dist variable based on speed...
 
 #define CAR_UPDATE_DELAY_MS  30   // updates the car position every n milliseconds
 
-#define ROAD_INDICATOR_ON_DURATION_MS   50   // flashes the road indicator
-#define ROAD_INDICATOR_OFF_DURATION_MS  500   // flashes the road indicator
+#define ROAD_INDICATOR_ON_DURATION_MS   300   // flashes the road indicator
+#define ROAD_INDICATOR_OFF_DURATION_MS  300   // flashes the road indicator
 
 Timer updateCarTimer;
 Timer roadIndicatorTimer;
@@ -28,8 +43,8 @@ Timer roadIndicatorTimer;
 bool indicatorOn = false;
 
 float carPosition = -CAR_FADE_IN_DIST;
-float carSpeed = 0.03;   // travels this far every update delay ms
-float carAccel = 0.005;  // acceleration each Blink traveled
+float carSpeed = START_CAR_SPEED;       // travels this far every update delay ms
+float carAccel = 0.005;                 // acceleration each Blink traveled
 
 float carFadeOutDistance = 40 * carSpeed; // the tail should have a relationship with the speed being travelled
 float carFadeInDistance = 0.2;
@@ -39,7 +54,7 @@ byte rotate = 0;
 byte face_in;
 byte face_out;
 
-bool hasCar = false;
+bool wasAlone = false;
 /*
    This map() functuion is now in Arduino.h in /dev
    It is replicated here so this skect can compile on older API commits
@@ -61,43 +76,105 @@ void loop() {
 
   if( buttonSingleClicked() ) {
     // spawn car
-    hasCar = true;
     carPosition = -CAR_FADE_IN_DIST;
-  }
 
-  if( buttonDoubleClicked() ) {
-    face_in++;
-    if(face_in >5) {
-      face_in = 0;
+    // send to the piece we are connected to
+    FOREACH_FACE( f ) {
+      if( !isValueReceivedOnFaceExpired( f ) ) {
+        face_in = (f + 3) % 6;
+        face_out = f;
+      }
     }
-    face_out = getFaceOutBasedOnFaceIn( face_in );
+    state = START;
   }
 
+  // if we receive the car handle the car
+  if( state == HIGHWAY ) {
+
+    // if we attach from being alone, set our in location to where we attached
+    
+    FOREACH_FACE( f ) {
+      
+      if( !isValueReceivedOnFaceExpired( f ) ) {
+
+        // now that we have a neighbor, assign a face in
+        if( wasAlone ) {
+          wasAlone = false;
+          face_in = f;
+          face_out = getFaceOutBasedOnFaceIn( face_in );
+        }
+
+        // check to see if the car is being passed to us
+        byte neighborMessage =  getLastValueReceivedOnFace( f );
+
+        if( neighborMessage == SEND_CAR ) {
+          state = CAR;
+          carPosition = -CAR_FADE_IN_DIST;   
+          carSpeed += carAccel; // increase our speed everytime this piece of highway is reused
+          
+          if( carSpeed > MAX_CAR_SPEED ) {
+            carSpeed = MAX_CAR_SPEED;     
+          }
+
+          carFadeOutDistance = 40 * carSpeed;
+        }
+        else if( neighborMessage == CRASH ) {
+          state = CRASH;
+        }
+        else if( neighborMessage == START ) {
+          carSpeed = START_CAR_SPEED;
+        }
+      }
+    }
+  }
+  
   // update the car's position
   if( updateCarTimer.isExpired() ) {
     updateCarTimer.set( CAR_UPDATE_DELAY_MS );
     carPosition += carSpeed;
 
-    if(carPosition == 1.0) {
+    if(carPosition >= 1.0 && carPosition < 1.0 + CAR_FADE_OUT_DIST) {
       // the car is at the edge, should pass to the next Blink
       if( !isValueReceivedOnFaceExpired( face_out ) ) {
         // Blink is available to receive
         // send the Blink a pass message
-        setValueSentOnFace( 2, face_out );    
+        state = SEND_CAR;
       }
       else {
-        // no Blink to receive, then we crash and explode 
+        // no Blink to receive, then we crash and explode
+        state = CRASH;
       }
     }
     else if(carPosition >= 1.0 + CAR_FADE_OUT_DIST) {
+      if( !isValueReceivedOnFaceExpired( face_out ) ) {
+        if ( getLastValueReceivedOnFace( face_out ) == CAR ) {
+          state = HIGHWAY;
+        }
+      }
       // car is now completely passed us
-      
       // for testing purposes, just loop back to where we started
 //      if(carPosition >= 1.0 + 2 * CAR_FADE_OUT_DIST) {
 //        carPosition = -CAR_FADE_IN_DIST;
 //      }
     }
   }
+
+  if (state == START) {
+    setValueSentOnAllFaces( START );
+  }
+  else if(state == SEND_CAR) {
+    setValueSentOnFace( SEND_CAR, face_out );
+  }
+  else if (state == CAR) {
+    setValueSentOnAllFaces( CAR );
+  }  
+  else if (state == HIGHWAY) {
+    setValueSentOnAllFaces( HIGHWAY );
+  }
+  else if (state == CRASH) {
+    setValueSentOnAllFaces( CRASH );
+  }
+
 
   // if we were alone 
   // and attached to the correct attachment point
@@ -124,13 +201,34 @@ void loop() {
     }
   }
 
-  if( indicatorOn ) {    
-    setFaceColor( face_in, GREEN);
-    setFaceColor( face_out, RED );
+  if( state == CRASH ) {
+    setColor( RED );
   }
+  
 
   if( isAlone() ){
-   // make it clear that we are a piece in transit... i.e. road building, maybe rotate yellow patern of 3 lights 
+    // make it clear that we are a piece in transit... i.e. road building, maybe rotate yellow patern of 3 lights 
+    state = HIGHWAY;
+    face_in = NO_FACE;
+    face_out = NO_FACE;
+    wasAlone = true;
+    
+    // turn the moving piece to yellow
+    setColor(YELLOW);
+  }
+  else {
+    
+    if( indicatorOn ) {    
+
+    // DEBUG: show incoming face
+    // setFaceColor( face_in, GREEN);
+
+    // show indicator if end of the line
+    if( isValueReceivedOnFaceExpired( face_out ) ) {
+      setFaceColor( face_out, dim(RED, 128) );
+    }
+  }
+
   }
 
 }
