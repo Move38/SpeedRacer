@@ -24,6 +24,8 @@ Timer updateCarTimer;
 float carPosition = -CAR_FADE_IN_DIST;
 float carSpeed = 0.03;  // travels this far every update delay ms
 
+byte rotate = 0;
+
 /*
    This map() functuion is now in Arduino.h in /dev
    It is replicated here so this skect can compile on older API commits
@@ -51,6 +53,13 @@ void loop() {
     }
   }
 
+  if( buttonDoubleClicked() ) {
+    rotate++;
+    if(rotate >5) {
+      rotate = 0;
+    }
+  }
+
   if( updateCarTimer.isExpired() ) {
     updateCarTimer.set( CAR_UPDATE_DELAY_MS );
     carPosition += carSpeed;
@@ -72,7 +81,7 @@ void loop() {
 
   // display the car
   FOREACH_FACE( f ) {
-    setFaceColor( f, getFaceColorBasedOnCarPossition( f, carPosition, 0, 3 ) );
+    setFaceColor( f, getFaceColorBasedOnCarPossition( f, carPosition, (0 + rotate)%6, (3 + rotate)%6) );
   }
 }
 
@@ -85,15 +94,10 @@ Color getFaceColorBasedOnCarPossition(byte face, float pos, byte from, byte to) 
   byte hue, saturation, brightness;
    
   // are we going straight, turning left, or turning right
-  if ( from == 0 && to == 3 ||    // if ( (from + 6 - to) % 6 == 3 )
-       from == 1 && to == 4 ||
-       from == 2 && to == 5 ||
-       from == 3 && to == 0 ||
-       from == 4 && to == 1 ||
-       from == 5 && to == 2 ) {
+  if ( (from + 6 - to) % 6 == 3 ) {
 
     float center;
-    switch(face) {  // face + from % 6 ... rotate to the correct direction
+    switch(face + from % 6) { //... rotate to the correct direction
       case 0: center = 0.0;  break;
       case 1: center = 0.25; break;
       case 2: center = 0.75; break;
