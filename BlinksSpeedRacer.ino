@@ -25,7 +25,10 @@ static state_t state = HIGHWAY;
                                // face is the source. 
 
 #define CAR_FADE_IN_DIST   0.20   // kind of like headlights
-#define CAR_FADE_OUT_DIST  1.25   // kind of like a taillight trail
+//#define CAR_FADE_OUT_DIST  1.25   // kind of like a taillight trail
+
+#define SEND_CAR_BUFFER    0.50   // kind of like a taillight trail
+
 
 #define START_CAR_SPEED    0.03   
 #define MAX_CAR_SPEED      0.25   
@@ -123,6 +126,7 @@ void loop() {
         }
         else if( neighborMessage == START ) {
           carSpeed = START_CAR_SPEED;
+          carFadeOutDistance = 40 * carSpeed;
         }
       }
     }
@@ -133,7 +137,7 @@ void loop() {
     updateCarTimer.set( CAR_UPDATE_DELAY_MS );
     carPosition += carSpeed;
 
-    if(carPosition >= 1.0 && carPosition < 1.0 + CAR_FADE_OUT_DIST) {
+    if(carPosition >= 1.0 && carPosition < 1.0 + SEND_CAR_BUFFER) {
       // the car is at the edge, should pass to the next Blink
       if( !isValueReceivedOnFaceExpired( face_out ) ) {
         // Blink is available to receive
@@ -145,17 +149,12 @@ void loop() {
         state = CRASH;
       }
     }
-    else if(carPosition >= 1.0 + CAR_FADE_OUT_DIST) {
+    else if(carPosition >= 1.0 + SEND_CAR_BUFFER) {
       if( !isValueReceivedOnFaceExpired( face_out ) ) {
         if ( getLastValueReceivedOnFace( face_out ) == CAR ) {
           state = HIGHWAY;
         }
       }
-      // car is now completely passed us
-      // for testing purposes, just loop back to where we started
-//      if(carPosition >= 1.0 + 2 * CAR_FADE_OUT_DIST) {
-//        carPosition = -CAR_FADE_IN_DIST;
-//      }
     }
   }
 
@@ -268,7 +267,7 @@ Color getFaceColorBasedOnCarPossition(byte face, float pos, byte from, byte to) 
     }
 
     // we are traveling straight
-    if( pos < -CAR_FADE_IN_DIST + center || pos > CAR_FADE_OUT_DIST + center ) {
+    if( pos < -CAR_FADE_IN_DIST + center || pos > carFadeOutDistance + center ) {
       // out of range for us...
       brightness = 0;
     }
@@ -284,7 +283,7 @@ Color getFaceColorBasedOnCarPossition(byte face, float pos, byte from, byte to) 
     
     else if( pos > center ) {
       // fade out
-      brightness = (byte) map_f(pos, center, CAR_FADE_OUT_DIST + center, 255, 0);
+      brightness = (byte) map_f(pos, center, carFadeOutDistance + center, 255, 0);
     }
     
   }
@@ -302,7 +301,7 @@ Color getFaceColorBasedOnCarPossition(byte face, float pos, byte from, byte to) 
       case 5: center = 0.5;  break;
     }
 
-    if( pos < -CAR_FADE_IN_DIST + center || pos > CAR_FADE_OUT_DIST + center ) {
+    if( pos < -CAR_FADE_IN_DIST + center || pos > carFadeOutDistance + center ) {
       // out of range for us...
       brightness = 0;
     }
@@ -318,7 +317,7 @@ Color getFaceColorBasedOnCarPossition(byte face, float pos, byte from, byte to) 
     
     else if( pos > center ) {
       // fade out
-      brightness = (byte) map_f(pos, center, CAR_FADE_OUT_DIST + center, 255, 0);
+      brightness = (byte) map_f(pos, center, carFadeOutDistance + center, 255, 0);
     }
   }
   
@@ -335,7 +334,7 @@ Color getFaceColorBasedOnCarPossition(byte face, float pos, byte from, byte to) 
       case 5: center = 0.25; break;
     }
 
-    if( pos < -CAR_FADE_IN_DIST + center || pos > CAR_FADE_OUT_DIST + center ) {
+    if( pos < -CAR_FADE_IN_DIST + center || pos > carFadeOutDistance + center ) {
       // out of range for us...
       brightness = 0;
     }
@@ -351,7 +350,7 @@ Color getFaceColorBasedOnCarPossition(byte face, float pos, byte from, byte to) 
     
     else if( pos > center ) {
       // fade out
-      brightness = (byte) map_f(pos, center, CAR_FADE_OUT_DIST + center, 255, 0);
+      brightness = (byte) map_f(pos, center, carFadeOutDistance + center, 255, 0);
     }
   }
 
