@@ -44,7 +44,7 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
-  if( buttonPressed() ) {
+  if( buttonSingleClicked() ) {
     // change car speed
     carSpeed += 0.01;
 
@@ -97,7 +97,8 @@ Color getFaceColorBasedOnCarPossition(byte face, float pos, byte from, byte to) 
   if ( (from + 6 - to) % 6 == 3 ) {
 
     float center;
-    switch(face + from % 6) { //... rotate to the correct direction
+    byte faceRotated = (face + from) % 6; 
+    switch( faceRotated ) { //... rotate to the correct direction
       case 0: center = 0.0;  break;
       case 1: center = 0.25; break;
       case 2: center = 0.75; break;
