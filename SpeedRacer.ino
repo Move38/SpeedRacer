@@ -22,6 +22,7 @@ enum handshakeStates {INERT, SENDING, READY};
 byte handshakeState = INERT;
 
 bool haveCar = false;
+bool carPassed = false;
 bool packetSent;
 byte carProgress = 0;//from 0-100 is the regular progress
 byte currentSpeed = 1;
@@ -119,6 +120,7 @@ void setupLoop() {
     gameState = PATHFIND;
     isPathfinding = true;
     isOrigin = true;
+    currentSpeed = 1;
     FOREACH_FACE(ff) {
       faceRoadInfo[ff] = SIDEWALK;
     }
@@ -138,12 +140,21 @@ void pathfindLoop() {
         byte neighborData = getLastValueReceivedOnFace(f);
         if (getGameState(neighborData) == PATHFIND) {//a neighbor we should be listening to
           if (getRoadState(neighborData) == EXIT) {//this neighbor wants us to begin pathfinding
-            isPathfinding = true;//begin pathfinding
-            FOREACH_FACE(ff) {//set all my faces to sidewalk
-              faceRoadInfo[ff] = SIDEWALK;
+            //get speedPacket
+            if (isPacketReadyOnFace(f)) {//is there a packet?
+              if (getPacketLengthOnFace(f) == 1) {//is it the right length?
+                byte *data = (byte *) getPacketDataOnFace(f);//grab the data
+                currentSpeed = data[0];
+
+                //go into full pathfinding mode
+                isPathfinding = true;//begin pathfinding
+                FOREACH_FACE(ff) {//set all my faces to sidewalk
+                  faceRoadInfo[ff] = SIDEWALK;
+                }
+                faceRoadInfo[f] = ENTRANCE;//this is our entrance
+                entranceFace = f;
+              }
             }
-            faceRoadInfo[f] = ENTRANCE;//this is our entrance
-            entranceFace = f;
           }
         }
       }
@@ -185,6 +196,12 @@ void pathfindLoop() {
       pathFound = true;
       isPathfinding = false;
       playState = THROUGH;
+      //send the speed packet
+      byte speedPacket = currentSpeed;
+      if (exitFace == exitFace % 3) {//a straightaway!
+        speedPacket++;
+      }
+      sendPacketOnFace(exitFace, (byte *) speedPacket, 1);
     } else {//we didn't find an exit, therefore THE GAME SHALL BEGIN!
       gameState = PLAY;
       playState = ENDPOINT;
@@ -202,87 +219,104 @@ void pathfindLoop() {
 }
 
 void gameLoop() {
-  //so here's the new architecture
-  //we set a bunch of bools to do a certain set of functions
-  bool doCarProgress = false;
-  bool doPacketSend = false;
-  bool 
-
-  if (haveCar) {
-    doCarProgress = true;
-  } else {
-
-  }
 
   if (playState == LOOSE) {
-
-  } else if (playState == ENDPOINT) {
-
-  } else if (playState == THROUGH) {
-
+    gameLoopLoose();
+  } else {
+    gameLoopRoad();
   }
-  /////////////OOOOOLD
-  //first we check if we're alone
-  if (haveCar) {//once you have a car, the only thing you do is tick car progress and try to establish a connection
-    if (!packetSent) {//you have an exit, but haven't made a connection. Just check that face for a READY signal
-      if (!isValueReceivedOnFaceExpired(exitFace)) { //there is a neighbor here
-        byte neighborData = getLastValueReceivedOnFace(exitFace);
-        if (getHandshake(neighborData) == READY) {//ooh, this neighbor wants my shit!
-          //throw a packet with speed at them
-          ////DO IT
-          packetSent = true;
-        }
-      }
 
-    } else {//the packet has been sent, and you have an exit
-      if (isValueReceivedOnFaceExpired(exitFace)) { //woah, my neighbor is gone
-        packetSent = false;//so we can resend it once a connection is re-established
+  //check for crash signal regardless of state
+  FOREACH_FACE(f) {
+    if (!isValueReceivedOnFaceExpired(f)) {
+      byte neighborData = getLastValueReceivedOnFace(f);
+      if (getGameState(neighborData) == CRASH) {
+        crashReset();
       }
     }
+  }
+}
 
-    //regardless of exit status, we must tick up the car progress and check for handshakes
-    carProgress = (transitTimer.getRemaining() * 100) / (currentTransitTime); //counts from 100-0
-    //time for a pass!
-    if (packetSent) {//we have a functional partner to pass to
-      handshakeState = INERT;
-      haveCar = false;
-    } else {//we don't have an exit to pass to, we crash
-      gameState = CRASH;
-      crashHere = true;
-    }
-    ////END OF HAVE CAR
-  } else {//we do not have the car
-    if (isAlone()) {//we are alone. Make sure we're set to all defaults
-      playState = LOOSE;
-      FOREACH_FACE(ff) {
-        faceRoadInfo[ff] = FREEAGENT;
-      }
-      entranceFace = 6;
-      exitFace = 6;
-      haveCar = false;
-      packetSent = 0;
-      handshakeState = INERT;
-      carProgress = 0;
-    } else {// we are connected to someone
-      if (playState == LOOSE) { //we're still looking to become part of the road
-        FOREACH_FACE(f) {//run through the faces, look for someone screaming EXIT at us
-          if (!isValueReceivedOnFaceExpired(f)) { //found someone
-            byte neighborData = getLastValueReceivedOnFace(f);
-            if (getRoadState(neighborData) == EXIT) {//nice, we found an exit
-              entranceFace = f;
+void gameLoopLoose() {
+  //I need to look for neighbors that make me not alone no more
+  FOREACH_FACE(f) {
+    if (!isValueReceivedOnFaceExpired(f)) {//neighbor!
+      byte neighborData = getLastValueReceivedOnFace(f);
+      if (getGameState(neighborData) == PLAY) {//he's playing the game
+        if (getRoadState(neighborData) == EXIT) {//he wants me to become a road piece!
+          if (isPacketReadyOnFace(f)) {//is there a packet?
+            if (getPacketLengthOnFace(f) == 1) {//is it the right length?
+              byte *data = (byte *) getPacketDataOnFace(f);//grab the data
+              currentSpeed = data[0];//the data is currentSpeed
+              //become a road piece
               playState = ENDPOINT;
-              exitFace = entranceFace + (2 + random(2));
-              faceRoadInfo[exitFace] = EXIT;
+              entranceFace = f;
             }
           }
         }
-      } else {//we are either and ENDPOINT or a THROUGH
-
       }
+    }
+  }
+  //if I become a road piece, I need to get my info set up
+  if (playState == ENDPOINT) {
+    FOREACH_FACE(f) {
+      faceRoadInfo[f] = SIDEWALK;
+    }
+    faceRoadInfo[entranceFace] = ENTRANCE;
+    exitFace = entranceFace + 2 + random(2);
+    faceRoadInfo[exitFace] = EXIT;
+  }
+}
 
+void gameLoopRoad() {
+  if (playState == ENDPOINT) {
+    //search for a FREEAGENT on your exit face
+    //if you find one, send a speed packet
+    if (!isValueReceivedOnFaceExpired(exitFace)) { //there is someone on my exit face
+      byte neighborData = getLastValueReceivedOnFace(exitFace);
+      if (getGameState(neighborData) == PLAY) {//this neighbor is able to accept a packet
+        byte speedPacket = currentSpeed;
+        if (exitFace == exitFace % 3) {//a straightaway!
+          speedPacket++;
+        }
+        sendPacketOnFace(exitFace, (byte *) speedPacket, 1);
+        playState = THROUGH;
+      }
+    }
+  }
+
+  if (haveCar) {
+    //do car progress
+    //crash?
+  } else {
+    if (!carPassed) {//these checks only happen if you still need to receive the car
+      //check your entrance face for... things happening
+      if (!isValueReceivedOnFaceExpired(entranceFace)) { //oh, they're gone! Go LOOSE!
+        looseReset();
+      } else {//so someone is still there. Are they still a road piece?
+        byte neighborData = getLastValueReceivedOnFace(entranceFace);
+        if (getRoadState(neighborData) == FREEAGENT) {//uh oh, it's a loose one. Best become loose as well
+          looseReset();
+        }
+      }
+    }//end carPassed check
+
+    //under any circumstances, you should go loose if you're alone
+    if (isAlone()) {
+      looseReset();
     }
 
-  }//end of do not have car
+  }//end haveCar checks
+
+
+}
+
+void looseReset() {
+
+}
+
+void crashReset() {
+
 }
 
 void crashLoop() {
