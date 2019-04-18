@@ -209,6 +209,7 @@ void pathfindLoop() {
       sendDatagramOnFace(exitFace, &speedDatagram, 1);
     } else {//we didn't find an exit, therefore THE GAME SHALL BEGIN!
       gameState = PLAY;
+      faceRoadInfo[exitFace] = EXIT;
       playState = ENDPOINT;
     }
   }
@@ -388,10 +389,27 @@ void looseReset() {
 void crashReset() {
   looseReset();
   gameState = CRASH;
+  isOrigin = false;
+  isPathfinding = false;
+  pathFound = false;
 }
 
 void crashLoop() {
+  //listen for transition to SETUP
+  FOREACH_FACE(f) {
+    if (!isValueReceivedOnFaceExpired(f)) { //something here
+      if (getGameState(getLastValueReceivedOnFace(f)) == SETUP) {//transition to PATHFIND
+        gameState = SETUP;
+      } else if (getGameState(getLastValueReceivedOnFace(f)) == PATHFIND) {//transition to PLAY
+        gameState = PATHFIND;
+      }
+    }
+  }
 
+  //listen for double click
+  if (buttonDoubleClicked()) {
+    gameState = SETUP;
+  }
 }
 
 byte getGameState(byte neighborData) {
@@ -438,7 +456,6 @@ void playGraphics() {
   FOREACH_FACE(f) {
     switch (faceRoadInfo[f]) {
       case FREEAGENT:
-        setColorOnFace(CYAN, f);
         break;
       case ENTRANCE:
         setColorOnFace(YELLOW, f);
