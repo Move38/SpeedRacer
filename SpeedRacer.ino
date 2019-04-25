@@ -1,3 +1,6 @@
+#include "Serial.h"
+ServicePortSerial serial;
+
 enum gameStates {SETUP, PATHFIND, PLAY, CRASH};
 byte gameState = SETUP;
 
@@ -36,6 +39,7 @@ bool crashHere = false;
 
 void setup() {
   gameState = SETUP;
+  //serial.println("Starting in SETUP");
 }
 
 void loop() {
@@ -111,6 +115,7 @@ void setupLoop() {
     if (!isValueReceivedOnFaceExpired(f)) { //something here
       if (getGameState(getLastValueReceivedOnFace(f)) == PATHFIND) {//transition to PATHFIND
         gameState = PATHFIND;
+        //serial.println("Commanded to go to PATHFIND");
       } else if (getGameState(getLastValueReceivedOnFace(f)) == PLAY) {//transition to PLAY
         gameState = PLAY;
       }
@@ -119,6 +124,7 @@ void setupLoop() {
 
   //listen for double click
   if (buttonDoubleClicked()) {
+    //serial.println("I'm starting the PATHFIND");
     gameState = PATHFIND;
     isPathfinding = true;
     isOrigin = true;
@@ -142,22 +148,12 @@ void pathfindLoop() {
         byte neighborData = getLastValueReceivedOnFace(f);
         if (getGameState(neighborData) == PATHFIND) {//a neighbor we should be listening to
           if (getRoadState(neighborData) == EXIT) {//this neighbor wants us to begin pathfinding
-            //get speedDatagram
-            if (isDatagramReadyOnFace(f)) {//is there a datagram?
-              if (getDatagramLengthOnFace(f) == 1) {//is it the right length?
-                byte *data = (byte *) getDatagramOnFace(f);//grab the datagram
-                markDatagramReadOnFace(f);
-                currentSpeed = data[0];
-
-                //go into full pathfinding mode
-                isPathfinding = true;//begin pathfinding
-                FOREACH_FACE(ff) {//set all my faces to sidewalk
-                  faceRoadInfo[ff] = SIDEWALK;
-                }
-                faceRoadInfo[f] = ENTRANCE;//this is our entrance
-                entranceFace = f;
-              }
+            isPathfinding = true;//begin pathfinding
+            FOREACH_FACE(ff) {//set all my faces to sidewalk
+              faceRoadInfo[ff] = SIDEWALK;
             }
+            faceRoadInfo[f] = ENTRANCE;//this is our entrance
+            entranceFace = f;
           }
         }
       }
@@ -200,15 +196,9 @@ void pathfindLoop() {
       pathFound = true;
       isPathfinding = false;
       playState = THROUGH;
-
-      //send the speed datagram
-      byte speedDatagram[] {currentSpeed};
-      if (exitFace == entranceFace % 3 && currentSpeed < SPEED_INCREMENTS) {//a straightaway we can speed up on!
-        speedDatagram[0]++;
-      }
-      sendDatagramOnFace(exitFace, &speedDatagram, 1);
     } else {//we didn't find an exit, therefore THE GAME SHALL BEGIN!
       gameState = PLAY;
+      //serial.println("I'm starting the GAME");
       faceRoadInfo[exitFace] = EXIT;
       playState = ENDPOINT;
     }
@@ -219,6 +209,7 @@ void pathfindLoop() {
       byte neighborData = getLastValueReceivedOnFace(f);
       if (getGameState(neighborData) == PLAY) {
         gameState = PLAY;
+        //serial.println("Neighbors have commanded me to GAME");
         if (isOrigin) {
           haveCar = true;
           handshakeState = HAVECAR;
@@ -255,18 +246,9 @@ void gameLoopLoose() {
       byte neighborData = getLastValueReceivedOnFace(f);
       if (getGameState(neighborData) == PLAY) {//he's playing the game
         if (getRoadState(neighborData) == EXIT) {//he wants me to become a road piece!
-          //get speedDatagram
-          if (isDatagramReadyOnFace(f)) {//is there a datagram?
-            if (getDatagramLengthOnFace(f) == 1) {//is it the right length?
-              byte *data = (byte *) getDatagramOnFace(f);//grab the datagram
-              markDatagramReadOnFace(f);
-              currentSpeed = data[0];
-
-              //become a road piece
-              playState = ENDPOINT;
-              entranceFace = f;
-            }
-          }
+          //become a road piece
+          playState = ENDPOINT;
+          entranceFace = f;
         }
       }
     }
@@ -289,12 +271,7 @@ void gameLoopRoad() {
     if (!isValueReceivedOnFaceExpired(exitFace)) { //there is someone on my exit face
       byte neighborData = getLastValueReceivedOnFace(exitFace);
       if (getGameState(neighborData) == PLAY) {//this neighbor is able to accept a packet
-        //send the speed datagram
-        byte speedDatagram[] {currentSpeed};
-        if (exitFace == entranceFace % 3 && currentSpeed < SPEED_INCREMENTS) {//a straightaway that we can speed up on!
-          speedDatagram[0]++;
-        }
-        sendDatagramOnFace(exitFace, &speedDatagram, 1);
+
         playState = THROUGH;
       }
     }
@@ -312,16 +289,19 @@ void gameLoopRoad() {
             haveCar = false;
           } else {
             //CRASH because not ready
+            //serial.println("CRASH here");
             gameState = CRASH;
             crashHere = true;
           }
         } else {
           //CRASH crash because not entrance
+          //serial.println("CRASH here");
           gameState = CRASH;
           crashHere = true;
         }
       } else {
         //CRASH because not there!
+        //serial.println("CRASH here");
         gameState = CRASH;
         crashHere = true;
       }
@@ -366,6 +346,7 @@ void gameLoopRoad() {
       byte neighborData = getLastValueReceivedOnFace(f);
       if (getGameState(neighborData) == CRASH) {
         gameState = CRASH;
+        //serial.println("CRASH elsewhere");
       }
     }
   }
@@ -400,6 +381,7 @@ void crashLoop() {
     if (!isValueReceivedOnFaceExpired(f)) { //something here
       if (getGameState(getLastValueReceivedOnFace(f)) == SETUP) {//transition to PATHFIND
         gameState = SETUP;
+        //serial.println("Sent back to SETUP");
       } else if (getGameState(getLastValueReceivedOnFace(f)) == PATHFIND) {//transition to PLAY
         gameState = PATHFIND;
       }
@@ -409,6 +391,7 @@ void crashLoop() {
   //listen for double click
   if (buttonDoubleClicked()) {
     gameState = SETUP;
+    //serial.println("I'm sending us back to SETUP");
   }
 }
 
@@ -425,7 +408,7 @@ byte getHandshakeState(byte neighborData) {
 }
 
 void setupGraphics () {
-  setColor(BLUE);
+  setColor(CYAN);
   FOREACH_FACE(f) {
     if (connectedFaces[f] == true) {
       setColorOnFace(YELLOW, f);
