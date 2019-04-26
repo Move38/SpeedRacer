@@ -39,7 +39,7 @@ bool crashHere = false;
 
 void setup() {
   gameState = SETUP;
-  //serial.println("Starting in SETUP");
+  serial.println("Starting in SETUP");
 }
 
 void loop() {
@@ -115,7 +115,7 @@ void setupLoop() {
     if (!isValueReceivedOnFaceExpired(f)) { //something here
       if (getGameState(getLastValueReceivedOnFace(f)) == PATHFIND) {//transition to PATHFIND
         gameState = PATHFIND;
-        //serial.println("Commanded to go to PATHFIND");
+        serial.println(F("PATHFIND"));
       } else if (getGameState(getLastValueReceivedOnFace(f)) == PLAY) {//transition to PLAY
         gameState = PLAY;
       }
@@ -124,7 +124,7 @@ void setupLoop() {
 
   //listen for double click
   if (buttonDoubleClicked()) {
-    //serial.println("I'm starting the PATHFIND");
+    serial.println(F("I'm starting the PATHFIND"));
     gameState = PATHFIND;
     isPathfinding = true;
     isOrigin = true;
@@ -142,6 +142,8 @@ void setupLoop() {
 }
 
 void pathfindLoop() {
+
+
   if (!isPathfinding && !pathFound) { //listen for pathfind command
     FOREACH_FACE(f) {
       if (!isValueReceivedOnFaceExpired(f)) { //something here
@@ -199,7 +201,7 @@ void pathfindLoop() {
     } else {//we didn't find an exit, therefore THE GAME SHALL BEGIN!
       gameState = PLAY;
       //serial.println("I'm starting the GAME");
-      faceRoadInfo[exitFace] = EXIT;
+      assignExit();
       playState = ENDPOINT;
     }
   }
@@ -249,6 +251,8 @@ void gameLoopLoose() {
           //become a road piece
           playState = ENDPOINT;
           entranceFace = f;
+        } else {
+          //TODO: USE CONNECTED FACES ARRAY TO MAKE SOME OH NO SIGNALS
         }
       }
     }
@@ -259,12 +263,18 @@ void gameLoopLoose() {
       faceRoadInfo[f] = SIDEWALK;
     }
     faceRoadInfo[entranceFace] = ENTRANCE;
-    exitFace = entranceFace + 2 + random(2);
-    faceRoadInfo[exitFace] = EXIT;
+    assignExit();
   }
 }
 
+void assignExit() {
+  exitFace = entranceFace + 2 + random(2);
+  faceRoadInfo[exitFace] = EXIT;
+  serial.println("EXITED");
+}
+
 void gameLoopRoad() {
+
   if (playState == ENDPOINT) {
     //search for a FREEAGENT on your exit face
     //if you find one, send a speed packet
@@ -273,6 +283,7 @@ void gameLoopRoad() {
       if (getGameState(neighborData) == PLAY) {//this neighbor is able to accept a packet
 
         playState = THROUGH;
+
       }
     }
   }
@@ -314,7 +325,7 @@ void gameLoopRoad() {
 
     if (!carPassed) {
       //check your entrance face for... things happening
-      if (!isValueReceivedOnFaceExpired(entranceFace)) { //oh, they're gone! Go LOOSE!
+      if (isValueReceivedOnFaceExpired(entranceFace)) { //oh, they're gone! Go LOOSE!
         looseReset();
       } else {//so someone is still there. Are they still a road piece?
         byte neighborData = getLastValueReceivedOnFace(entranceFace);
