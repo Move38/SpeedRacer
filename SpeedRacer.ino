@@ -387,7 +387,6 @@ void crashReset() {
   isPathfinding = false;
   pathFound = false;
   crashHere = false;
-  carPassed = false;
 }
 
 void crashLoop() {
