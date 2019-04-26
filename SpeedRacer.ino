@@ -298,6 +298,7 @@ void gameLoopRoad() {
             handshakeState = CARSENT;
             carPassed = true;
             haveCar = false;
+            //TODO: DATAGRAM
           } else {
             //CRASH because not ready
             //serial.println("CRASH here");
@@ -342,6 +343,7 @@ void gameLoopRoad() {
                 //THEY HAVE SENT THE CAR. BECOME THE ACTIVE GUY
                 handshakeState = HAVECAR;
                 haveCar = true;
+                currentSpeed = 1;
                 transitTimer.set(map(currentSpeed, 0, SPEED_INCREMENTS, MAX_TRANSIT_TIME, MIN_TRANSIT_TIME));
               }
             }
@@ -384,6 +386,8 @@ void crashReset() {
   isOrigin = false;
   isPathfinding = false;
   pathFound = false;
+  crashHere = false;
+  carPassed = false;
 }
 
 void crashLoop() {
