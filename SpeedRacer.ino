@@ -453,6 +453,7 @@ void playGraphics() {
   FOREACH_FACE(f) {
     switch (faceRoadInfo[f]) {
       case FREEAGENT:
+        setColorOnFace(MAGENTA, f);
         break;
       case ENTRANCE:
         setColorOnFace(YELLOW, f);
@@ -471,8 +472,10 @@ void playGraphics() {
   }
 
   if (haveCar) {
-    setColorOnFace(GREEN, entranceFace);
-    setColorOnFace(GREEN, exitFace);
+    if (entranceFace < 6 && exitFace < 6) {
+      setColorOnFace(GREEN, entranceFace);
+      setColorOnFace(GREEN, exitFace);
+    }
   }
 }
 
