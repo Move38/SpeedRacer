@@ -189,11 +189,11 @@ void pathfindLoop() {
     }//end possible exit checks
 
     if (exitFace != 6) { //we actually found a legit exit
-      faceRoadInfo[exitFace] = EXIT;
+      setRoadInfoOnFace(EXIT, exitFace);
       //in the special case where we were the origin, we need to reorient the entrance face
       if (isOrigin) {
         entranceFace = (exitFace + 3) % 6;
-        faceRoadInfo[entranceFace] = ENTRANCE;
+        setRoadInfoOnFace(ENTRANCE, entranceFace);
       }
       pathFound = true;
       isPathfinding = false;
@@ -219,6 +219,15 @@ void pathfindLoop() {
         }
       }
     }
+  }
+}
+
+void setRoadInfoOnFace( byte info, byte face) {
+  if ( face < 6 ) {
+    faceRoadInfo[face] = info;
+  }
+  else {
+    serial.println("ERR-1"); // tried to write to out of bounds array
   }
 }
 
@@ -260,16 +269,16 @@ void gameLoopLoose() {
   //if I become a road piece, I need to get my info set up
   if (playState == ENDPOINT) {
     FOREACH_FACE(f) {
-      faceRoadInfo[f] = SIDEWALK;
+      setRoadInfoOnFace(SIDEWALK, f);
     }
-    faceRoadInfo[entranceFace] = ENTRANCE;
+    setRoadInfoOnFace(ENTRANCE, entranceFace);
     assignExit();
   }
 }
 
 void assignExit() {
-  exitFace = entranceFace + 2 + random(2);
-  faceRoadInfo[exitFace] = EXIT;
+  exitFace = (entranceFace + 2 + random(2)) % 6;
+  setRoadInfoOnFace(EXIT, exitFace);
   serial.println("EXITED");
 }
 
@@ -278,7 +287,10 @@ void gameLoopRoad() {
   if (playState == ENDPOINT) {
     //search for a FREEAGENT on your exit face
     //if you find one, send a speed packet
-    if (!isValueReceivedOnFaceExpired(exitFace)) { //there is someone on my exit face
+    if ( exitFace >= 6 ) {
+      serial.println("ERR-3"); // out of bounds...
+    }
+    else if (!isValueReceivedOnFaceExpired(exitFace)) { //there is someone on my exit face
       byte neighborData = getLastValueReceivedOnFace(exitFace);
       if (getGameState(neighborData) == PLAY) {//this neighbor is able to accept a packet
 
@@ -291,7 +303,10 @@ void gameLoopRoad() {
   if (haveCar) {
     if (transitTimer.isExpired()) {
       //ok, so here is where shit gets tricky
-      if (!isValueReceivedOnFaceExpired(exitFace)) {
+      if ( exitFace >= 6 ) {
+        serial.println("ERR-4"); // out of bounds...
+      }
+      else if (!isValueReceivedOnFaceExpired(exitFace)) {
         byte neighborData = getLastValueReceivedOnFace(exitFace);
         if (getRoadState(neighborData) == ENTRANCE) {
           if (getHandshakeState(neighborData) == READY) {
@@ -326,7 +341,10 @@ void gameLoopRoad() {
 
     if (!carPassed) {
       //check your entrance face for... things happening
-      if (isValueReceivedOnFaceExpired(entranceFace)) { //oh, they're gone! Go LOOSE!
+      if (entranceFace >= 6) {
+        serial.println("ERR-2"); // out of bounds
+      }
+      else if (isValueReceivedOnFaceExpired(entranceFace)) { //oh, they're gone! Go LOOSE!
         looseReset();
       } else {//so someone is still there. Are they still a road piece?
         byte neighborData = getLastValueReceivedOnFace(entranceFace);
@@ -486,4 +504,3 @@ void crashGraphics() {
     setColor(ORANGE);
   }
 }
-
