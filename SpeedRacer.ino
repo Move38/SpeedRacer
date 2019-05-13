@@ -97,6 +97,11 @@ void loop() {
       setValueSentOnAllFaces(CRASH << 4);
       break;
   }
+
+  // TODO: Remove this, it is just a tool for reseting the game while in development
+  if(buttonLongPressed()) {
+    gameReset();
+  }
 }
 
 void setupLoop() {
@@ -405,6 +410,12 @@ void crashReset() {
   isPathfinding = false;
   pathFound = false;
   crashHere = false;
+}
+
+void gameReset() {
+  looseReset();
+  crashReset();
+  gameState = SETUP;
 }
 
 void crashLoop() {
