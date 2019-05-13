@@ -4,6 +4,28 @@ ServicePortSerial serial;
 enum gameStates {SETUP, PATHFIND, PLAY, CRASH};
 byte gameState = SETUP;
 
+const char *stateString( gameStates g ) {
+  switch (g) {
+    case SETUP:
+      return("SETUP");
+      break;
+    case PATHFIND:
+      return("PATH ");
+      break;
+    case PLAY:
+      return("PLAY ");
+      break;
+    case CRASH:
+      return("CRASH ");
+      break;
+     default:
+      return("DEFALT");
+      break;
+     
+  }  
+  
+}
+
 //SETUP DATA
 bool connectedFaces[6];
 bool isOrigin = false;
@@ -39,10 +61,30 @@ bool crashHere = false;
 
 void setup() {
   gameState = SETUP;
+  serial.begin();
   serial.println("Starting in SETUP");
 }
 
+void printGameStateChanged(const char *where ) {
+
+  static gameStates prev=SETUP;
+
+  if (gameState!=prev)  {
+
+    serial.print( millis() + 10000000 );
+    serial.print(":");
+    serial.print(where);
+    serial.print(" ");    
+    serial.println(stateString(gameState));
+
+    prev=gameState;
+  }
+  
+}
+
 void loop() {
+
+  printGameStateChanged("TOP") ;
 
   //run loops
   switch (gameState) {
@@ -60,6 +102,10 @@ void loop() {
       break;
   }
 
+  printGameStateChanged("MID") ;
+
+  
+
   //run graphics
   switch (gameState) {
     case SETUP:
@@ -75,6 +121,9 @@ void loop() {
       crashGraphics();
       break;
   }
+
+  printGameStateChanged("BOT") ;
+
 
   //update communication
   switch (gameState) {
@@ -97,6 +146,9 @@ void loop() {
       setValueSentOnAllFaces(CRASH << 4);
       break;
   }
+
+  printGameStateChanged("END") ;
+
 
   // TODO: Remove this, it is just a tool for reseting the game while in development
   if(buttonLongPressed()) {
