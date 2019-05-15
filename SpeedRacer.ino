@@ -37,6 +37,9 @@ Timer transitTimer;
 //CRASH DATA
 bool crashHere = false;
 
+#define CAR_FADE_IN_DIST   200   // kind of like headlights
+long carFadeOutDistance = 40 * currentSpeed; // the tail should have a relationship with the speed being travelled
+
 void setup() {
   gameState = SETUP;
   serial.println("Starting in SETUP");
@@ -99,7 +102,7 @@ void loop() {
   }
 
   // TODO: Remove this, it is just a tool for reseting the game while in development
-  if(buttonLongPressed()) {
+  if (buttonLongPressed()) {
     gameReset();
   }
 }
@@ -220,7 +223,8 @@ void pathfindLoop() {
         if (isOrigin) {
           haveCar = true;
           handshakeState = HAVECAR;
-          transitTimer.set(map(currentSpeed, 0, SPEED_INCREMENTS, MAX_TRANSIT_TIME, MIN_TRANSIT_TIME));
+          currentTransitTime = map(currentSpeed, 0, SPEED_INCREMENTS, MAX_TRANSIT_TIME, MIN_TRANSIT_TIME);
+          transitTimer.set(currentTransitTime);
         }
       }
     }
@@ -367,7 +371,8 @@ void gameLoopRoad() {
                 handshakeState = HAVECAR;
                 haveCar = true;
                 currentSpeed = 1;
-                transitTimer.set(map(currentSpeed, 0, SPEED_INCREMENTS, MAX_TRANSIT_TIME, MIN_TRANSIT_TIME));
+                currentTransitTime = map(currentSpeed, 0, SPEED_INCREMENTS, MAX_TRANSIT_TIME, MIN_TRANSIT_TIME);
+                transitTimer.set(currentTransitTime);
               }
             }
           }
@@ -492,7 +497,7 @@ void playGraphics() {
         break;
       case SIDEWALK:
         if (handshakeState == READY) {
-          setColorOnFace(WHITE, f);
+          setColorOnFace(dim(GREEN,63), f);
         } else {
           setColorOnFace(OFF, f);
         }
@@ -501,9 +506,13 @@ void playGraphics() {
   }
 
   if (haveCar) {
+    carProgress = map(transitTimer.getRemaining(), currentTransitTime, 0, 0, 100);
     if (entranceFace < 6 && exitFace < 6) {
-      setColorOnFace(GREEN, entranceFace);
-      setColorOnFace(GREEN, exitFace);
+      FOREACH_FACE(f) {
+        setColorOnFace(getFaceColorBasedOnCarPosition(f, carProgress, entranceFace, exitFace), f);
+      }
+      //      setColorOnFace(GREEN, entranceFace);
+      //      setColorOnFace(GREEN, exitFace);
     }
   }
 }
@@ -514,4 +523,146 @@ void crashGraphics() {
   } else {
     setColor(ORANGE);
   }
+}
+
+/*
+   fade from the first side to the opposite side
+   front of the fade should be faster than the fall off
+
+*/
+Color getFaceColorBasedOnCarPosition(byte face, byte pos, byte from, byte to) {
+  byte hue, saturation, brightness;
+  byte carFadeInDistance = 20;
+  byte carFadeOutDistance = 20;
+
+  byte loBound, hiBound;
+
+  // are we going straight, turning left, or turning right
+  if ( (from + 6 - to) % 6 == 3 ) {
+
+    byte center;
+    byte faceRotated = (6 + face - from) % 6;
+    switch ( faceRotated ) { //... rotate to the correct direction
+      case 0: center = 0;  break;
+      case 1: center = 33; break;
+      case 2: center = 67; break;
+      case 3: center = 100;  break;
+      case 4: center = 67; break;
+      case 5: center = 33; break;
+    }
+
+    if (carFadeInDistance > center) {
+      loBound = 0;
+    }
+    else {
+      loBound = center - carFadeInDistance;
+    }
+
+    // we are traveling straight
+    if ( pos < loBound || pos > carFadeOutDistance + center ) {
+      // out of range for us...
+      brightness = 0;
+    }
+
+    else if ( pos < center ) {
+      // fade in
+      brightness = (byte) map(pos, loBound, center, 0, 255);
+    }
+
+    else if ( pos == center ) {
+      brightness = 255;
+    }
+
+    else if ( pos > center ) {
+      // fade out
+      brightness = (byte) map(pos, center, carFadeOutDistance + center, 255, 0);
+    }
+
+  }
+
+  else if ( (from + 6 - to) % 6 == 2 ) {
+    // we are turning right
+    byte center;
+    byte faceRotated = (6 + face - from) % 6;
+    switch ( faceRotated ) { //... rotate to the correct direction
+      case 0: center = 0;  break;
+      case 1: center = 25; break;
+      case 2: center = 50;  break;
+      case 3: center = 75; break;
+      case 4: center = 100;  break;
+      case 5: center = 50;  break;
+    }
+
+    if (carFadeInDistance > center) {
+      loBound = 0;
+    }
+    else {
+      loBound = center - carFadeInDistance;
+    }
+
+    // inner side shouldn't light up on the turn
+    if ( faceRotated == 5 || pos < loBound || pos > carFadeOutDistance + center ) {
+      // out of range for us...
+      brightness = 0;
+    }
+
+    else if ( pos < center ) {
+      // fade in
+      brightness = (byte) map(pos, loBound, center, 0, 255);
+    }
+
+    else if ( pos == center ) {
+      brightness = 255;
+    }
+
+    else if ( pos > center ) {
+      // fade out
+      brightness = (byte) map(pos, center, carFadeOutDistance + center, 255, 0);
+    }
+  }
+
+  else if ( (from + 6 - to) % 6 == 4 ) {
+    // we are turning left
+    long center;
+    byte faceRotated = (6 + face - from) % 6;
+    switch ( faceRotated ) { //... rotate to the correct direction
+      case 0: center = 0;  break;
+      case 1: center = 50;  break;
+      case 2: center = 100;  break;
+      case 3: center = 75; break;
+      case 4: center = 50;  break;
+      case 5: center = 25; break;
+    }
+
+    if (carFadeInDistance > center) {
+      loBound = 0;
+    }
+    else {
+      loBound = center - carFadeInDistance;
+    }
+
+    // inner side shouldn't light up on the turn
+    if ( faceRotated == 1 || pos < loBound || pos > carFadeOutDistance + center ) {
+      // out of range for us...
+      brightness = 0;
+    }
+
+    else if ( pos < center ) {
+      // fade in
+      //      brightness = 0;
+      brightness = (byte) map(pos, loBound, center, 0, 255);
+    }
+
+    else if ( pos == center ) {
+      brightness = 255;
+    }
+
+    else if ( pos > center ) {
+      // fade out
+      //      brightness = 0;
+      brightness = (byte) map(pos, center, carFadeOutDistance + center, 255, 0);
+    }
+  }
+
+  return makeColorHSB(0, 0, brightness);
 }
