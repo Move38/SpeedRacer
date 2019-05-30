@@ -1,5 +1,22 @@
+/*
+ *  Speed Racer
+ *  by Move38, Inc. 2019
+ *  Lead development by Dan King
+ *  original game by Dan King, Jonathan Bobrow
+ *
+ *  Rules: https://github.com/Move38/SpeedRacer/blob/master/README.md
+ *
+ *  --------------------
+ *  Blinks by Move38
+ *  Brought to life via Kickstarter 2018
+ *
+ *  @madewithblinks
+ *  www.move38.com
+ *  --------------------
+ */
+
 #include "Serial.h"
-ServicePortSerial serial;
+ServicePortSerial sp;
 
 enum gameStates {SETUP, PATHFIND, PLAY, CRASH};
 byte gameState = SETUP;
@@ -14,8 +31,10 @@ bool pathFound = false;
 
 enum faceRoadStates {FREEAGENT, ENTRANCE, EXIT, SIDEWALK};
 byte faceRoadInfo[6];
-byte entranceFace = 6;//these are an impossible number by default
-byte exitFace = 6;//these are an impossible number by default
+bool hasEntrance = false;
+bool hasExit = false;
+byte entranceFace = 0;
+byte exitFace = 0;
 
 //PLAY DATA
 enum playStates {LOOSE, THROUGH, ENDPOINT};
@@ -26,10 +45,10 @@ byte handshakeState = NOCAR;
 
 bool haveCar = false;
 bool carPassed = false;
-byte carProgress = 0;//from 0-100 is the regular progress
+word carProgress = 0;//from 0-100 is the regular progress
 byte currentSpeed = 1;
 #define SPEED_INCREMENTS 100
-int currentTransitTime;
+word currentTransitTime;
 #define MIN_TRANSIT_TIME 750
 #define MAX_TRANSIT_TIME 1500
 Timer transitTimer;
@@ -42,7 +61,7 @@ long carFadeOutDistance = 40 * currentSpeed; // the tail should have a relations
 
 void setup() {
   gameState = SETUP;
-  serial.println("Starting in SETUP");
+  sp.begin();
 }
 
 void loop() {
@@ -123,7 +142,7 @@ void setupLoop() {
     if (!isValueReceivedOnFaceExpired(f)) { //something here
       if (getGameState(getLastValueReceivedOnFace(f)) == PATHFIND) {//transition to PATHFIND
         gameState = PATHFIND;
-        serial.println(F("PATHFIND"));
+        //        sp.println(F("PATHFIND"));
       } else if (getGameState(getLastValueReceivedOnFace(f)) == PLAY) {//transition to PLAY
         gameState = PLAY;
       }
@@ -132,7 +151,7 @@ void setupLoop() {
 
   //listen for double click
   if (buttonDoubleClicked()) {
-    serial.println(F("I'm starting the PATHFIND"));
+    //    sp.println(F("I'm starting the PATHFIND"));
     gameState = PATHFIND;
     isPathfinding = true;
     isOrigin = true;
@@ -144,6 +163,7 @@ void setupLoop() {
     FOREACH_FACE(ff) {
       if (connectedFaces[ff] == true) {//there's something on this face
         entranceFace = (ff + 3) % 6;//just the opposite of an occupied face
+        hasEntrance = true;
       }
     }
   }
@@ -164,6 +184,7 @@ void pathfindLoop() {
             }
             faceRoadInfo[f] = ENTRANCE;//this is our entrance
             entranceFace = f;
+            hasEntrance = true;
           }
         }
       }
@@ -189,14 +210,16 @@ void pathfindLoop() {
         if (getGameState(neighborData) == PATHFIND) {//so this on is already in pathfind
           if (getRoadState(neighborData) == FREEAGENT) {//this neighbor is a legit entrance
             exitFace = exitOptions[i];
+            hasExit = true;
           }
         } else if (getGameState(neighborData) == SETUP) { //this neighbor is in some other mode, theoretically SETUP
           exitFace = exitOptions[i];
+          hasExit = true;
         }
       }
     }//end possible exit checks
 
-    if (exitFace != 6) { //we actually found a legit exit
+    if (hasExit) { //we actually found a legit exit
       setRoadInfoOnFace(EXIT, exitFace);
       //in the special case where we were the origin, we need to reorient the entrance face
       if (isOrigin) {
@@ -208,7 +231,7 @@ void pathfindLoop() {
       playState = THROUGH;
     } else {//we didn't find an exit, therefore THE GAME SHALL BEGIN!
       gameState = PLAY;
-      //serial.println("I'm starting the GAME");
+      //      sp.println("I'm starting the GAME");
       assignExit();
       playState = ENDPOINT;
     }
@@ -219,11 +242,11 @@ void pathfindLoop() {
       byte neighborData = getLastValueReceivedOnFace(f);
       if (getGameState(neighborData) == PLAY) {
         gameState = PLAY;
-        //serial.println("Neighbors have commanded me to GAME");
+        //sp.println("Neighbors have commanded me to GAME");
         if (isOrigin) {
           haveCar = true;
           handshakeState = HAVECAR;
-          currentTransitTime = map(currentSpeed, 0, SPEED_INCREMENTS, MAX_TRANSIT_TIME, MIN_TRANSIT_TIME);
+          currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
           transitTimer.set(currentTransitTime);
         }
       }
@@ -236,7 +259,7 @@ void setRoadInfoOnFace( byte info, byte face) {
     faceRoadInfo[face] = info;
   }
   else {
-    serial.println("ERR-1"); // tried to write to out of bounds array
+    sp.println("ERR-1"); // tried to write to out of bounds array
   }
 }
 
@@ -288,7 +311,8 @@ void gameLoopLoose() {
 void assignExit() {
   exitFace = (entranceFace + 2 + random(2)) % 6;
   setRoadInfoOnFace(EXIT, exitFace);
-  serial.println("EXITED");
+  hasExit = true;
+  //  sp.println("Exit Assigned");
 }
 
 void gameLoopRoad() {
@@ -297,7 +321,7 @@ void gameLoopRoad() {
     //search for a FREEAGENT on your exit face
     //if you find one, send a speed packet
     if ( exitFace >= 6 ) {
-      serial.println("ERR-3"); // out of bounds...
+      sp.println("ERR-3"); // out of bounds...
     }
     else if (!isValueReceivedOnFaceExpired(exitFace)) { //there is someone on my exit face
       byte neighborData = getLastValueReceivedOnFace(exitFace);
@@ -312,8 +336,8 @@ void gameLoopRoad() {
   if (haveCar) {
     if (transitTimer.isExpired()) {
       //ok, so here is where shit gets tricky
-      if ( exitFace >= 6 ) {
-        serial.println("ERR-4"); // out of bounds...
+      if ( !hasExit ) {
+        sp.println("ERR-4"); // out of bounds...
       }
       else if (!isValueReceivedOnFaceExpired(exitFace)) {
         byte neighborData = getLastValueReceivedOnFace(exitFace);
@@ -325,19 +349,19 @@ void gameLoopRoad() {
             //TODO: DATAGRAM
           } else {
             //CRASH because not ready
-            //serial.println("CRASH here");
+            //sp.println("CRASH here");
             gameState = CRASH;
             crashHere = true;
           }
         } else {
           //CRASH crash because not entrance
-          //serial.println("CRASH here");
+          //sp.println("CRASH here");
           gameState = CRASH;
           crashHere = true;
         }
       } else {
         //CRASH because not there!
-        //serial.println("CRASH here");
+        //sp.println("CRASH here");
         gameState = CRASH;
         crashHere = true;
       }
@@ -350,8 +374,8 @@ void gameLoopRoad() {
 
     if (!carPassed) {
       //check your entrance face for... things happening
-      if (entranceFace >= 6) {
-        serial.println("ERR-2"); // out of bounds
+      if (!hasEntrance) {
+        sp.println("ERR-2");
       }
       else if (isValueReceivedOnFaceExpired(entranceFace)) { //oh, they're gone! Go LOOSE!
         looseReset();
@@ -371,7 +395,7 @@ void gameLoopRoad() {
                 handshakeState = HAVECAR;
                 haveCar = true;
                 currentSpeed = 1;
-                currentTransitTime = map(currentSpeed, 0, SPEED_INCREMENTS, MAX_TRANSIT_TIME, MIN_TRANSIT_TIME);
+                currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
                 transitTimer.set(currentTransitTime);
               }
             }
@@ -387,7 +411,7 @@ void gameLoopRoad() {
       byte neighborData = getLastValueReceivedOnFace(f);
       if (getGameState(neighborData) == CRASH) {
         gameState = CRASH;
-        //serial.println("CRASH elsewhere");
+        //sp.println("CRASH elsewhere");
       }
     }
   }
@@ -399,9 +423,9 @@ void looseReset() {
   handshakeState = NOCAR;
   haveCar = false;
   carPassed = false;
-  currentSpeed = 0;
-  entranceFace = 6;//these are an impossible number by default
-  exitFace = 6;//these are an impossible number by default
+  currentSpeed = 1;
+  hasEntrance = false;
+  hasExit = false;
 
   FOREACH_FACE(f) {
     faceRoadInfo[f] = FREEAGENT;
@@ -421,6 +445,7 @@ void gameReset() {
   looseReset();
   crashReset();
   gameState = SETUP;
+  sp.println("RESET");
 }
 
 void crashLoop() {
@@ -429,7 +454,7 @@ void crashLoop() {
     if (!isValueReceivedOnFaceExpired(f)) { //something here
       if (getGameState(getLastValueReceivedOnFace(f)) == SETUP) {//transition to PATHFIND
         gameState = SETUP;
-        //serial.println("Sent back to SETUP");
+        //sp.println("Sent back to SETUP");
       } else if (getGameState(getLastValueReceivedOnFace(f)) == PATHFIND) {//transition to PLAY
         gameState = PATHFIND;
       }
@@ -439,7 +464,7 @@ void crashLoop() {
   //listen for double click
   if (buttonDoubleClicked()) {
     gameState = SETUP;
-    //serial.println("I'm sending us back to SETUP");
+    //sp.println("I'm sending us back to SETUP");
   }
 }
 
@@ -490,29 +515,35 @@ void playGraphics() {
         setColorOnFace(MAGENTA, f);
         break;
       case ENTRANCE:
-        setColorOnFace(YELLOW, f);
+        if (handshakeState == READY) {
+          setColorOnFace(GREEN, f);
+        }
+        else {
+          setColorOnFace(YELLOW, f);
+        }
         break;
       case EXIT:
         setColorOnFace(YELLOW, f);
         break;
       case SIDEWALK:
-        if (handshakeState == READY) {
-          setColorOnFace(dim(GREEN,63), f);
-        } else {
-          setColorOnFace(OFF, f);
-        }
+        setColorOnFace(OFF, f);
         break;
     }
   }
 
   if (haveCar) {
-    carProgress = map(transitTimer.getRemaining(), currentTransitTime, 0, 0, 100);
-    if (entranceFace < 6 && exitFace < 6) {
+    carProgress = (100 * (currentTransitTime - transitTimer.getRemaining())) / currentTransitTime;
+    sp.print(F("car: "));
+    sp.println(carProgress);
+    //    sp.print(F("time: "));
+    //    sp.println(transitTimer.getRemaining());
+    //    sp.print(F("cur: "));
+    //    sp.println(currentTransitTime);
+    //    sp.println("-");
+    if (hasEntrance && hasExit) {
       FOREACH_FACE(f) {
         setColorOnFace(getFaceColorBasedOnCarPosition(f, carProgress, entranceFace, exitFace), f);
       }
-      //      setColorOnFace(GREEN, entranceFace);
-      //      setColorOnFace(GREEN, exitFace);
     }
   }
 }
@@ -533,7 +564,7 @@ void crashGraphics() {
 Color getFaceColorBasedOnCarPosition(byte face, byte pos, byte from, byte to) {
   byte hue, saturation, brightness;
   byte carFadeInDistance = 20;
-  byte carFadeOutDistance = 20;
+  byte carFadeOutDistance = 50;
 
   byte loBound, hiBound;
 
@@ -575,7 +606,12 @@ Color getFaceColorBasedOnCarPosition(byte face, byte pos, byte from, byte to) {
 
     else if ( pos > center ) {
       // fade out
-      brightness = (byte) map(pos, center, carFadeOutDistance + center, 255, 0);
+      if ( pos - center > carFadeOutDistance) {
+        brightness = 0;
+      }
+      else {
+        brightness = 255 - (byte) map(pos, center, carFadeOutDistance + center, 0, 255);
+      }
     }
 
   }
@@ -617,13 +653,22 @@ Color getFaceColorBasedOnCarPosition(byte face, byte pos, byte from, byte to) {
 
     else if ( pos > center ) {
       // fade out
-      brightness = (byte) map(pos, center, carFadeOutDistance + center, 255, 0);
+      if ( pos - center > carFadeOutDistance) {
+        brightness = 0;
+      }
+      else {
+        brightness = 255 - (byte) map(pos, center, carFadeOutDistance + center, 0, 255);
+
+        sp.print(brightness);
+        sp.print(F(", pos: "));
+        sp.println(pos);
+      }
     }
   }
 
   else if ( (from + 6 - to) % 6 == 4 ) {
     // we are turning left
-    long center;
+    byte center;
     byte faceRotated = (6 + face - from) % 6;
     switch ( faceRotated ) { //... rotate to the correct direction
       case 0: center = 0;  break;
@@ -659,8 +704,12 @@ Color getFaceColorBasedOnCarPosition(byte face, byte pos, byte from, byte to) {
 
     else if ( pos > center ) {
       // fade out
-      //      brightness = 0;
-      brightness = (byte) map(pos, center, carFadeOutDistance + center, 255, 0);
+      if ( pos - center > carFadeOutDistance) {
+        brightness = 0;
+      }
+      else {
+        brightness = 255 - (byte) map(pos, center, carFadeOutDistance + center, 0, 255);
+      }
     }
   }
 
