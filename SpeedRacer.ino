@@ -99,7 +99,7 @@ void loop() {
   }
 
   // TODO: Remove this, it is just a tool for reseting the game while in development
-  if(buttonLongPressed()) {
+  if (buttonLongPressed()) {
     gameReset();
   }
 }
@@ -341,7 +341,7 @@ void gameLoopRoad() {
   } else {//I don't have the car
     //under any circumstances, you should go loose if you're alone
     if (isAlone()) {
-      looseReset();
+      variableReset();
     }
 
     if (!carPassed) {
@@ -350,12 +350,12 @@ void gameLoopRoad() {
         serial.println("ERR-2"); // out of bounds
       }
       else if (isValueReceivedOnFaceExpired(entranceFace)) { //oh, they're gone! Go LOOSE!
-        looseReset();
+        variableReset();
       } else {//so someone is still there. Are they still a road piece?
         byte neighborData = getLastValueReceivedOnFace(entranceFace);
         if (getGameState(neighborData) == PLAY) { //this guy is in PLAY state, so I can trust that this isn't the transition period
           if (getRoadState(neighborData) == FREEAGENT) {//uh oh, it's a loose one. Best become loose as well
-            looseReset();
+            variableReset();
           } else if (getRoadState(neighborData) == EXIT) {//ok, so it could send me a car. Is it?
             if (handshakeState == NOCAR) {//check and see if they are in HAVECAR
               if (getHandshakeState(neighborData) == HAVECAR) {
@@ -388,33 +388,31 @@ void gameLoopRoad() {
   }
 }
 
-void looseReset() {
-
+void variableReset() {
   playState = LOOSE;
-  handshakeState = NOCAR;
   haveCar = false;
   carPassed = false;
-  currentSpeed = 0;
-  entranceFace = 6;//these are an impossible number by default
-  exitFace = 6;//these are an impossible number by default
-
-  FOREACH_FACE(f) {
-    faceRoadInfo[f] = FREEAGENT;
-  }
-}
-
-void crashReset() {
-  looseReset();
-  gameState = CRASH;
+  carProgress = 0;
+  currentSpeed = 1;
+  handshakeState = NOCAR;
   isOrigin = false;
   isPathfinding = false;
   pathFound = false;
+  entranceFace = 6;
+  exitFace = 6;
+  FOREACH_FACE(f) {
+    faceRoadInfo[f] = FREEAGENT;
+  }
   crashHere = false;
 }
 
+void crashReset() {
+  variableReset();
+  gameState = CRASH;
+}
+
 void gameReset() {
-  looseReset();
-  crashReset();
+  variableReset();
   gameState = SETUP;
 }
 
@@ -433,7 +431,7 @@ void crashLoop() {
 
   //listen for double click
   if (buttonDoubleClicked()) {
-    gameState = SETUP;
+    gameReset();
     //serial.println("I'm sending us back to SETUP");
   }
 }
