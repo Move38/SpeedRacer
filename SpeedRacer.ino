@@ -320,7 +320,7 @@ void gameLoopRoad() {
   if (playState == ENDPOINT) {
     //search for a FREEAGENT on your exit face
     //if you find one, send a speed packet
-    if ( exitFace >= 6 ) {
+    if (!hasExit) {
       sp.println("ERR-3"); // out of bounds...
     }
     else if (!isValueReceivedOnFaceExpired(exitFace)) { //there is someone on my exit face
