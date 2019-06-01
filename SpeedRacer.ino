@@ -1,51 +1,49 @@
 /*
- *  Speed Racer
- *  by Move38, Inc. 2019
- *  Lead development by Dan King
- *  original game by Dan King, Jonathan Bobrow
- *
- *  Rules: https://github.com/Move38/SpeedRacer/blob/master/README.md
- *
- *  --------------------
- *  Blinks by Move38
- *  Brought to life via Kickstarter 2018
- *
- *  @madewithblinks
- *  www.move38.com
- *  --------------------
- */
+    Speed Racer
+    by Move38, Inc. 2019
+    Lead development by Dan King
+    original game by Dan King, Jonathan Bobrow
+
+    Rules: https://github.com/Move38/SpeedRacer/blob/master/README.md
+
+    --------------------
+    Blinks by Move38
+    Brought to life via Kickstarter 2018
+
+    @madewithblinks
+    www.move38.com
+    --------------------
+*/
 
 #include "Serial.h"
 ServicePortSerial sp;
 
-enum gameStates {SETUP, PATHFIND, PLAY, CRASH};
+enum gameStates {SETUP, PLAY, CRASH};
 byte gameState = SETUP;
 
 //SETUP DATA
 bool connectedFaces[6];
-bool isOrigin = false;
-
-//PATHFIND DATA
-bool isPathfinding = false;
-bool pathFound = false;
-
-enum faceRoadStates {FREEAGENT, ENTRANCE, EXIT, SIDEWALK};
-byte faceRoadInfo[6];
-bool hasEntrance = false;
-bool hasExit = false;
-byte entranceFace = 0;
-byte exitFace = 0;
 
 //PLAY DATA
 enum playStates {LOOSE, THROUGH, ENDPOINT};
 byte playState = LOOSE;
 
+enum faceRoadStates {FREEAGENT, ENTRANCE, EXIT, SIDEWALK};
+byte faceRoadInfo[6];
+
 enum handshakeStates {NOCAR, HAVECAR, READY, CARSENT};
 byte handshakeState = NOCAR;
+
+bool hasEntrance = false;
+byte entranceFace = 0;
+
+bool hasExit = false;
+byte exitFace = 0;
 
 bool haveCar = false;
 bool carPassed = false;
 word carProgress = 0;//from 0-100 is the regular progress
+
 byte currentSpeed = 1;
 #define SPEED_INCREMENTS 100
 word currentTransitTime;
@@ -71,9 +69,6 @@ void loop() {
     case SETUP:
       setupLoop();
       break;
-    case PATHFIND:
-      pathfindLoop();
-      break;
     case PLAY:
       gameLoop();
       break;
@@ -87,9 +82,6 @@ void loop() {
     case SETUP:
       setupGraphics();
       break;
-    case PATHFIND:
-      pathfindGraphics();
-      break;
     case PLAY:
       playGraphics();
       break;
@@ -102,12 +94,6 @@ void loop() {
   switch (gameState) {
     case SETUP://this one is simple
       setValueSentOnAllFaces(SETUP << 4);
-      break;
-    case PATHFIND:
-      FOREACH_FACE(f) {
-        byte sendData = (PATHFIND << 4) + (faceRoadInfo[f] << 2);
-        setValueSentOnFace(sendData, f);
-      }
       break;
     case PLAY:
       FOREACH_FACE(f) {
@@ -137,13 +123,10 @@ void setupLoop() {
     }
   }
 
-  //listen for transition to PATHFIND
+  //listen for transition to PLAY
   FOREACH_FACE(f) {
     if (!isValueReceivedOnFaceExpired(f)) { //something here
-      if (getGameState(getLastValueReceivedOnFace(f)) == PATHFIND) {//transition to PATHFIND
-        gameState = PATHFIND;
-        //        sp.println(F("PATHFIND"));
-      } else if (getGameState(getLastValueReceivedOnFace(f)) == PLAY) {//transition to PLAY
+      if (getGameState(getLastValueReceivedOnFace(f)) == PLAY) {//transition to PLAY
         gameState = PLAY;
       }
     }
@@ -151,108 +134,120 @@ void setupLoop() {
 
   //listen for double click
   if (buttonDoubleClicked()) {
-    //    sp.println(F("I'm starting the PATHFIND"));
-    gameState = PATHFIND;
-    isPathfinding = true;
-    isOrigin = true;
+    //    sp.println(F("I'm starting the PLAY"));
+    gameState = PLAY;
+    playState = ENDPOINT;
     currentSpeed = 1;
-    FOREACH_FACE(ff) {
-      faceRoadInfo[ff] = SIDEWALK;
-    }
-    //set up a temporary entrance face, to be fixed later
-    FOREACH_FACE(ff) {
-      if (connectedFaces[ff] == true) {//there's something on this face
-        entranceFace = (ff + 3) % 6;//just the opposite of an occupied face
-        hasEntrance = true;
-      }
-    }
-  }
-}
-
-void pathfindLoop() {
-
-
-  if (!isPathfinding && !pathFound) { //listen for pathfind command
     FOREACH_FACE(f) {
-      if (!isValueReceivedOnFaceExpired(f)) { //something here
-        byte neighborData = getLastValueReceivedOnFace(f);
-        if (getGameState(neighborData) == PATHFIND) {//a neighbor we should be listening to
-          if (getRoadState(neighborData) == EXIT) {//this neighbor wants us to begin pathfinding
-            isPathfinding = true;//begin pathfinding
-            FOREACH_FACE(ff) {//set all my faces to sidewalk
-              faceRoadInfo[ff] = SIDEWALK;
-            }
-            faceRoadInfo[f] = ENTRANCE;//this is our entrance
-            entranceFace = f;
-            hasEntrance = true;
-          }
-        }
-      }
-    }
-  }//end of listen for pathfind
-
-  if (isPathfinding) { //do actual pathfinding
-    //make an exit option array
-    byte exitOptions[3] = {(entranceFace + 2) % 6, (entranceFace + 3) % 6, (entranceFace + 4) % 6};
-    //shuffle that shit
-    for (byte s = 0; s < 6; s++) {
-      byte swapA = random(2);
-      byte swapB = random(2);
-      byte temp = exitOptions[swapA];
-      exitOptions[swapA] = exitOptions[swapB];
-      exitOptions[swapB] = temp;
+      faceRoadInfo[f] = SIDEWALK;
     }
 
-    //now, check each of them, and if you find a valid one, make it the exit face internally
-    for (byte i = 0; i < 3; i++) {
-      if (!isValueReceivedOnFaceExpired(exitOptions[i])) { //something here
-        byte neighborData = getLastValueReceivedOnFace(exitOptions[i]);
-        if (getGameState(neighborData) == PATHFIND) {//so this on is already in pathfind
-          if (getRoadState(neighborData) == FREEAGENT) {//this neighbor is a legit entrance
-            exitFace = exitOptions[i];
-            hasExit = true;
-          }
-        } else if (getGameState(neighborData) == SETUP) { //this neighbor is in some other mode, theoretically SETUP
-          exitFace = exitOptions[i];
+    //choose an exit
+    if (!isAlone()) {
+      FOREACH_FACE(f) {
+        if (!isValueReceivedOnFaceExpired(f) && !hasExit) {
           hasExit = true;
+          exitFace = f;
         }
       }
-    }//end possible exit checks
-
-    if (hasExit) { //we actually found a legit exit
-      setRoadInfoOnFace(EXIT, exitFace);
-      //in the special case where we were the origin, we need to reorient the entrance face
-      if (isOrigin) {
-        entranceFace = (exitFace + 3) % 6;
-        setRoadInfoOnFace(ENTRANCE, entranceFace);
-      }
-      pathFound = true;
-      isPathfinding = false;
-      playState = THROUGH;
-    } else {//we didn't find an exit, therefore THE GAME SHALL BEGIN!
-      gameState = PLAY;
-      //      sp.println("I'm starting the GAME");
-      assignExit();
-      playState = ENDPOINT;
+    } else {//this blink is alone, so we just choose a random face
+      hasExit = true;
+      exitFace = random(5);
     }
-  }
 
-  FOREACH_FACE(f) { //just straight up listen for the PLAY signal
-    if (!isValueReceivedOnFaceExpired(f)) { //something here
-      byte neighborData = getLastValueReceivedOnFace(f);
-      if (getGameState(neighborData) == PLAY) {
-        gameState = PLAY;
-        //sp.println("Neighbors have commanded me to GAME");
-        if (isOrigin) {
-          haveCar = true;
-          handshakeState = HAVECAR;
-          currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
-          transitTimer.set(currentTransitTime);
-        }
-      }
-    }
+    //now that we've set an exit, we'll put the entrance opposite
+    hasEntrance = true;
+    entranceFace = (exitFace + 3) % 6;
+
+    haveCar = true;
+    carPassed = true;
   }
 }
+
+//void pathfindLoop() {
+//
+//
+//  if (!isPathfinding && !pathFound) { //listen for pathfind command
+//    FOREACH_FACE(f) {
+//      if (!isValueReceivedOnFaceExpired(f)) { //something here
+//        byte neighborData = getLastValueReceivedOnFace(f);
+//        if (getGameState(neighborData) == PATHFIND) {//a neighbor we should be listening to
+//          if (getRoadState(neighborData) == EXIT) {//this neighbor wants us to begin pathfinding
+//            isPathfinding = true;//begin pathfinding
+//            FOREACH_FACE(ff) {//set all my faces to sidewalk
+//              faceRoadInfo[ff] = SIDEWALK;
+//            }
+//            faceRoadInfo[f] = ENTRANCE;//this is our entrance
+//            entranceFace = f;
+//            hasEntrance = true;
+//          }
+//        }
+//      }
+//    }
+//  }//end of listen for pathfind
+//
+//  if (isPathfinding) { //do actual pathfinding
+//    //make an exit option array
+//    byte exitOptions[3] = {(entranceFace + 2) % 6, (entranceFace + 3) % 6, (entranceFace + 4) % 6};
+//    //shuffle that shit
+//    for (byte s = 0; s < 6; s++) {
+//      byte swapA = random(2);
+//      byte swapB = random(2);
+//      byte temp = exitOptions[swapA];
+//      exitOptions[swapA] = exitOptions[swapB];
+//      exitOptions[swapB] = temp;
+//    }
+//
+//    //now, check each of them, and if you find a valid one, make it the exit face internally
+//    for (byte i = 0; i < 3; i++) {
+//      if (!isValueReceivedOnFaceExpired(exitOptions[i])) { //something here
+//        byte neighborData = getLastValueReceivedOnFace(exitOptions[i]);
+//        if (getGameState(neighborData) == PATHFIND) {//so this on is already in pathfind
+//          if (getRoadState(neighborData) == FREEAGENT) {//this neighbor is a legit entrance
+//            exitFace = exitOptions[i];
+//            hasExit = true;
+//          }
+//        } else if (getGameState(neighborData) == SETUP) { //this neighbor is in some other mode, theoretically SETUP
+//          exitFace = exitOptions[i];
+//          hasExit = true;
+//        }
+//      }
+//    }//end possible exit checks
+//
+//    if (hasExit) { //we actually found a legit exit
+//      setRoadInfoOnFace(EXIT, exitFace);
+//      //in the special case where we were the origin, we need to reorient the entrance face
+//      if (isOrigin) {
+//        entranceFace = (exitFace + 3) % 6;
+//        setRoadInfoOnFace(ENTRANCE, entranceFace);
+//      }
+//      pathFound = true;
+//      isPathfinding = false;
+//      playState = THROUGH;
+//    } else {//we didn't find an exit, therefore THE GAME SHALL BEGIN!
+//      gameState = PLAY;
+//      //      sp.println("I'm starting the GAME");
+//      assignExit();
+//      playState = ENDPOINT;
+//    }
+//  }
+//
+//  FOREACH_FACE(f) { //just straight up listen for the PLAY signal
+//    if (!isValueReceivedOnFaceExpired(f)) { //something here
+//      byte neighborData = getLastValueReceivedOnFace(f);
+//      if (getGameState(neighborData) == PLAY) {
+//        gameState = PLAY;
+//        //sp.println("Neighbors have commanded me to GAME");
+//        if (isOrigin) {
+//          haveCar = true;
+//          handshakeState = HAVECAR;
+//          currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
+//          transitTimer.set(currentTransitTime);
+//        }
+//      }
+//    }
+//  }
+//}
 
 void setRoadInfoOnFace( byte info, byte face) {
   if ( face < 6 ) {
@@ -309,12 +304,41 @@ void gameLoopLoose() {
 }
 
 void assignExit() {
-  exitFace = (entranceFace + 2 + random(2)) % 6;
-  setRoadInfoOnFace(EXIT, exitFace);
-  hasExit = true;
-  //  sp.println("Exit Assigned");
+  //check to see if a preferred exit face exists
+  FOREACH_FACE(f) {
+    if (!hasExit) {
+      if (isValidExit(f)) {
+        if (!isValueReceivedOnFaceExpired(f)) {
+          byte neighborData = getLastValueReceivedOnFace(f);
+          if (getRoadState(neighborData) == FREEAGENT || getRoadState(neighborData) == ENTRANCE) {
+            hasExit = true;
+            exitFace = f;
+            setRoadInfoOnFace(EXIT, exitFace);
+          }
+        }
+      }
+    }
+  }
+
+  //so I've made it to the end of the preferred exit check. Do I have an exit?
+  if (!hasExit) {
+    hasExit = true;
+    exitFace = (entranceFace + random(2)) % 6;
+    setRoadInfoOnFace(EXIT, exitFace);
+  }
 }
 
+bool isValidExit(byte face) {
+  if (face == (entranceFace + 2) & 6) {
+    return true;
+  } else if (face == (entranceFace + 3) & 6) {
+    return true;
+  } else if (face == (entranceFace + 4) & 6) {
+    return true;
+  } else {
+    return false;
+  }
+}
 void gameLoopRoad() {
 
   if (playState == ENDPOINT) {
@@ -372,14 +396,12 @@ void gameLoopRoad() {
       looseReset();
     }
 
-    if (!carPassed) {
-      //check your entrance face for... things happening
-      if (!hasEntrance) {
-        sp.println("ERR-2");
-      }
-      else if (isValueReceivedOnFaceExpired(entranceFace)) { //oh, they're gone! Go LOOSE!
-        looseReset();
-      } else {//so someone is still there. Are they still a road piece?
+
+    //check your entrance face for... things happening
+    if (!hasEntrance) {
+      sp.println("ERR-2");
+    } else {
+      if (!isValueReceivedOnFaceExpired(entranceFace)) {//there's some on my entrance face
         byte neighborData = getLastValueReceivedOnFace(entranceFace);
         if (getGameState(neighborData) == PLAY) { //this guy is in PLAY state, so I can trust that this isn't the transition period
           if (getRoadState(neighborData) == FREEAGENT) {//uh oh, it's a loose one. Best become loose as well
@@ -401,8 +423,8 @@ void gameLoopRoad() {
             }
           }
         }
-      }//end neighbor checks
-    }//end carPassed check
+      }
+    }//end entrance checks
   }//end haveCar checks
 
   //and no matter what, check to hear crashes elsewhere
