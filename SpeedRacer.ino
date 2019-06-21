@@ -60,6 +60,7 @@ long carFadeOutDistance = 40 * currentSpeed; // the tail should have a relations
 void setup() {
   gameState = SETUP;
   sp.begin();
+  randomize();
 }
 
 void loop() {
@@ -457,9 +458,9 @@ void looseReset() {
 void crashReset() {
   looseReset();
   gameState = CRASH;
-  isOrigin = false;
-  isPathfinding = false;
-  pathFound = false;
+  //isOrigin = false;
+  //isPathfinding = false;
+  //pathFound = false;
   crashHere = false;
 }
 
@@ -477,8 +478,6 @@ void crashLoop() {
       if (getGameState(getLastValueReceivedOnFace(f)) == SETUP) {//transition to PATHFIND
         gameState = SETUP;
         //sp.println("Sent back to SETUP");
-      } else if (getGameState(getLastValueReceivedOnFace(f)) == PATHFIND) {//transition to PLAY
-        gameState = PATHFIND;
       }
     }
   }
