@@ -139,29 +139,21 @@ void setupLoop() {
     gameState = PLAY;
     playState = ENDPOINT;
     currentSpeed = 1;
+    currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
+    transitTimer.set(currentTransitTime);
     FOREACH_FACE(f) {
       faceRoadInfo[f] = SIDEWALK;
     }
 
     //choose an exit
-    if (!isAlone()) {
-      FOREACH_FACE(f) {
-        if (!isValueReceivedOnFaceExpired(f) && !hasExit) {
-          hasExit = true;
-          exitFace = f;
-        }
-      }
-    } else {//this blink is alone, so we just choose a random face
-      hasExit = true;
-      exitFace = random(5);
-    }
+    assignExit();
 
     //now that we've set an exit, we'll put the entrance opposite
     hasEntrance = true;
     entranceFace = (exitFace + 3) % 6;
 
     haveCar = true;
-    carPassed = true;
+    carPassed = false;
   }
 }
 
@@ -324,9 +316,15 @@ void assignExit() {
 
   //so I've made it to the end of the preferred exit check. Do I have an exit?
   if (!hasExit) {
-    hasExit = true;
-    exitFace = (entranceFace + random(2)) % 6;
-    setRoadInfoOnFace(EXIT, exitFace);
+    if (!hasEntrance) { //this only happens on the first link in the chain
+      hasExit = true;
+      exitFace = random(5);
+      setRoadInfoOnFace(EXIT, exitFace);
+    } else {
+      hasExit = true;
+      exitFace = (entranceFace + random(2)) % 6;
+      setRoadInfoOnFace(EXIT, exitFace);
+    }
   }
 }
 
@@ -341,6 +339,7 @@ bool isValidExit(byte face) {
     return false;
   }
 }
+
 void gameLoopRoad() {
 
   if (playState == ENDPOINT) {
