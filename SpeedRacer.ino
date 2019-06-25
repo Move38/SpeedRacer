@@ -15,8 +15,8 @@
     --------------------
 */
 
-#include "Serial.h"
-ServicePortSerial sp;
+//#include "Serial.h"
+//ServicePortSerial sp;
 
 enum gameStates {SETUP, PLAY, CRASH};
 byte gameState = SETUP;
@@ -59,7 +59,7 @@ long carFadeOutDistance = 40 * currentSpeed; // the tail should have a relations
 
 void setup() {
   gameState = SETUP;
-  sp.begin();
+  //sp.begin();
   randomize();
 }
 
@@ -255,7 +255,7 @@ void setRoadInfoOnFace( byte info, byte face) {
     faceRoadInfo[face] = info;
   }
   else {
-    sp.println("ERR-1"); // tried to write to out of bounds array
+    //sp.println("ERR-1"); // tried to write to out of bounds array
   }
 }
 
@@ -288,6 +288,7 @@ void gameLoopLoose() {
           //become a road piece
           playState = ENDPOINT;
           entranceFace = f;
+          hasEntrance = true;
         } else {
           //TODO: USE CONNECTED FACES ARRAY TO MAKE SOME OH NO SIGNALS
         }
@@ -346,7 +347,7 @@ void gameLoopRoad() {
     //search for a FREEAGENT on your exit face
     //if you find one, send a speed packet
     if (!hasExit) {
-      sp.println("ERR-3"); // out of bounds...
+      //sp.println("ERR-3"); // out of bounds...
     }
     else if (!isValueReceivedOnFaceExpired(exitFace)) { //there is someone on my exit face
       byte neighborData = getLastValueReceivedOnFace(exitFace);
@@ -362,7 +363,7 @@ void gameLoopRoad() {
     if (transitTimer.isExpired()) {
       //ok, so here is where shit gets tricky
       if ( !hasExit ) {
-        sp.println("ERR-4"); // out of bounds...
+        //sp.println("ERR-4"); // out of bounds...
       }
       else if (!isValueReceivedOnFaceExpired(exitFace)) {
         byte neighborData = getLastValueReceivedOnFace(exitFace);
@@ -400,7 +401,7 @@ void gameLoopRoad() {
 
     //check your entrance face for... things happening
     if (!hasEntrance) {
-      sp.println("ERR-2");
+      //sp.println("ERR-2");
     } else {
       if (!isValueReceivedOnFaceExpired(entranceFace)) {//there's some on my entrance face
         byte neighborData = getLastValueReceivedOnFace(entranceFace);
@@ -468,7 +469,7 @@ void gameReset() {
   looseReset();
   crashReset();
   gameState = SETUP;
-  sp.println("RESET");
+  //sp.println("RESET");
 }
 
 void crashLoop() {
@@ -547,25 +548,29 @@ void playGraphics() {
         setColorOnFace(YELLOW, f);
         break;
       case SIDEWALK:
-        setColorOnFace(OFF, f);
+        if (haveCar) {
+          setColorOnFace(dim(WHITE, 100), f);
+        } else {
+          setColorOnFace(OFF, f);
+        }
         break;
     }
   }
 
   if (haveCar) {
-    carProgress = (100 * (currentTransitTime - transitTimer.getRemaining())) / currentTransitTime;
-    sp.print(F("car: "));
-    sp.println(carProgress);
-    //    sp.print(F("time: "));
-    //    sp.println(transitTimer.getRemaining());
-    //    sp.print(F("cur: "));
-    //    sp.println(currentTransitTime);
-    //    sp.println("-");
-    if (hasEntrance && hasExit) {
-      FOREACH_FACE(f) {
-        setColorOnFace(getFaceColorBasedOnCarPosition(f, carProgress, entranceFace, exitFace), f);
-      }
-    }
+    //    carProgress = (100 * (currentTransitTime - transitTimer.getRemaining())) / currentTransitTime;
+    //    sp.print(F("car: "));
+    //    sp.println(carProgress);
+    //    //    sp.print(F("time: "));
+    //    //    sp.println(transitTimer.getRemaining());
+    //    //    sp.print(F("cur: "));
+    //    //    sp.println(currentTransitTime);
+    //    //    sp.println("-");
+    //    if (hasEntrance && hasExit) {
+    //      FOREACH_FACE(f) {
+    //        setColorOnFace(getFaceColorBasedOnCarPosition(f, carProgress, entranceFace, exitFace), f);
+    //      }
+    //    }
   }
 }
 
@@ -582,7 +587,9 @@ void crashGraphics() {
    front of the fade should be faster than the fall off
 
 */
-Color getFaceColorBasedOnCarPosition(byte face, byte pos, byte from, byte to) {
+
+/*
+  Color getFaceColorBasedOnCarPosition(byte face, byte pos, byte from, byte to) {
   byte hue, saturation, brightness;
   byte carFadeInDistance = 20;
   byte carFadeOutDistance = 50;
@@ -735,4 +742,5 @@ Color getFaceColorBasedOnCarPosition(byte face, byte pos, byte from, byte to) {
   }
 
   return makeColorHSB(0, 0, brightness);
-}
+  }
+*/
