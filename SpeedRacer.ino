@@ -151,96 +151,12 @@ void setupLoop() {
     //now that we've set an exit, we'll put the entrance opposite
     hasEntrance = true;
     entranceFace = (exitFace + 3) % 6;
+    setRoadInfoOnFace(ENTRANCE, entranceFace);
 
     haveCar = true;
     carPassed = false;
   }
 }
-
-//void pathfindLoop() {
-//
-//
-//  if (!isPathfinding && !pathFound) { //listen for pathfind command
-//    FOREACH_FACE(f) {
-//      if (!isValueReceivedOnFaceExpired(f)) { //something here
-//        byte neighborData = getLastValueReceivedOnFace(f);
-//        if (getGameState(neighborData) == PATHFIND) {//a neighbor we should be listening to
-//          if (getRoadState(neighborData) == EXIT) {//this neighbor wants us to begin pathfinding
-//            isPathfinding = true;//begin pathfinding
-//            FOREACH_FACE(ff) {//set all my faces to sidewalk
-//              faceRoadInfo[ff] = SIDEWALK;
-//            }
-//            faceRoadInfo[f] = ENTRANCE;//this is our entrance
-//            entranceFace = f;
-//            hasEntrance = true;
-//          }
-//        }
-//      }
-//    }
-//  }//end of listen for pathfind
-//
-//  if (isPathfinding) { //do actual pathfinding
-//    //make an exit option array
-//    byte exitOptions[3] = {(entranceFace + 2) % 6, (entranceFace + 3) % 6, (entranceFace + 4) % 6};
-//    //shuffle that shit
-//    for (byte s = 0; s < 6; s++) {
-//      byte swapA = random(2);
-//      byte swapB = random(2);
-//      byte temp = exitOptions[swapA];
-//      exitOptions[swapA] = exitOptions[swapB];
-//      exitOptions[swapB] = temp;
-//    }
-//
-//    //now, check each of them, and if you find a valid one, make it the exit face internally
-//    for (byte i = 0; i < 3; i++) {
-//      if (!isValueReceivedOnFaceExpired(exitOptions[i])) { //something here
-//        byte neighborData = getLastValueReceivedOnFace(exitOptions[i]);
-//        if (getGameState(neighborData) == PATHFIND) {//so this on is already in pathfind
-//          if (getRoadState(neighborData) == FREEAGENT) {//this neighbor is a legit entrance
-//            exitFace = exitOptions[i];
-//            hasExit = true;
-//          }
-//        } else if (getGameState(neighborData) == SETUP) { //this neighbor is in some other mode, theoretically SETUP
-//          exitFace = exitOptions[i];
-//          hasExit = true;
-//        }
-//      }
-//    }//end possible exit checks
-//
-//    if (hasExit) { //we actually found a legit exit
-//      setRoadInfoOnFace(EXIT, exitFace);
-//      //in the special case where we were the origin, we need to reorient the entrance face
-//      if (isOrigin) {
-//        entranceFace = (exitFace + 3) % 6;
-//        setRoadInfoOnFace(ENTRANCE, entranceFace);
-//      }
-//      pathFound = true;
-//      isPathfinding = false;
-//      playState = THROUGH;
-//    } else {//we didn't find an exit, therefore THE GAME SHALL BEGIN!
-//      gameState = PLAY;
-//      //      sp.println("I'm starting the GAME");
-//      assignExit();
-//      playState = ENDPOINT;
-//    }
-//  }
-//
-//  FOREACH_FACE(f) { //just straight up listen for the PLAY signal
-//    if (!isValueReceivedOnFaceExpired(f)) { //something here
-//      byte neighborData = getLastValueReceivedOnFace(f);
-//      if (getGameState(neighborData) == PLAY) {
-//        gameState = PLAY;
-//        //sp.println("Neighbors have commanded me to GAME");
-//        if (isOrigin) {
-//          haveCar = true;
-//          handshakeState = HAVECAR;
-//          currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
-//          transitTimer.set(currentTransitTime);
-//        }
-//      }
-//    }
-//  }
-//}
 
 void setRoadInfoOnFace( byte info, byte face) {
   if ( face < 6 ) {
@@ -447,7 +363,9 @@ void looseReset() {
   haveCar = false;
   carPassed = false;
   currentSpeed = 1;
+  entranceFace = 6;
   hasEntrance = false;
+  exitFace = 6;
   hasExit = false;
 
   FOREACH_FACE(f) {
@@ -510,25 +428,6 @@ void setupGraphics () {
   }
 }
 
-void pathfindGraphics() {
-  FOREACH_FACE(f) {
-    switch (faceRoadInfo[f]) {
-      case FREEAGENT:
-        setColorOnFace(WHITE, f);
-        break;
-      case ENTRANCE:
-        setColorOnFace(RED, f);
-        break;
-      case EXIT:
-        setColorOnFace(GREEN, f);
-        break;
-      case SIDEWALK:
-        setColorOnFace(OFF, f);
-        break;
-    }
-  }
-}
-
 void playGraphics() {
   FOREACH_FACE(f) {
     switch (faceRoadInfo[f]) {
@@ -536,12 +435,7 @@ void playGraphics() {
         setColorOnFace(MAGENTA, f);
         break;
       case ENTRANCE:
-        if (handshakeState == READY) {
-          setColorOnFace(GREEN, f);
-        }
-        else {
-          setColorOnFace(YELLOW, f);
-        }
+        setColorOnFace(GREEN, f);
         break;
       case EXIT:
         setColorOnFace(YELLOW, f);
