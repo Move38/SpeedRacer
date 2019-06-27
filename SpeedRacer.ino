@@ -288,8 +288,7 @@ void gameLoopRoad() {
       //ok, so here is where shit gets tricky
       if ( !hasExit ) {
         //sp.println("ERR-4"); // out of bounds...
-      }
-      else if (!isValueReceivedOnFaceExpired(exitFace)) {
+      } else if (!isValueReceivedOnFaceExpired(exitFace)) {
         byte neighborData = getLastValueReceivedOnFace(exitFace);
         if (getRoadState(neighborData) == ENTRANCE) {
           if (getHandshakeState(neighborData) == READY) {
@@ -311,7 +310,6 @@ void gameLoopRoad() {
         }
       } else {
         //CRASH because not there!
-        //sp.println("CRASH here");
         crashReset();
         crashHere = true;
       }
@@ -322,32 +320,36 @@ void gameLoopRoad() {
       looseReset();
     }
 
+    if (handshakeState == CARSENT) {//so I've passed the car
+      if (getHandshakeState(getLastValueReceivedOnFace(exitFace)) == HAVECAR) {//the road I passed to has received it
+        handshakeState = NOCAR;
+      }
+    }
+    
     //check your entrance face for... things happening
-    if (!hasEntrance) {
-      //sp.println("ERR-2");
-    } else {
-      if (!isValueReceivedOnFaceExpired(entranceFace)) {//there's some on my entrance face
-        byte neighborData = getLastValueReceivedOnFace(entranceFace);
-        if (getGameState(neighborData) == PLAY) { //this guy is in PLAY state, so I can trust that this isn't the transition period
-          if (getRoadState(neighborData) == EXIT) {//ok, so it could send me a car. Is it?
-            if (handshakeState == NOCAR) {//check and see if they are in HAVECAR
-              if (getHandshakeState(neighborData) == HAVECAR) {
-                handshakeState = READY;
-              }
-            } else if (handshakeState == READY) {
-              if (getHandshakeState(neighborData) == CARSENT) {
-                //THEY HAVE SENT THE CAR. BECOME THE ACTIVE GUY
-                handshakeState = HAVECAR;
-                haveCar = true;
-                currentSpeed = 1;
-                currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
-                transitTimer.set(currentTransitTime);
-              }
+    if (!isValueReceivedOnFaceExpired(entranceFace)) {//there's some on my entrance face
+      byte neighborData = getLastValueReceivedOnFace(entranceFace);
+      if (getGameState(neighborData) == PLAY) { //this guy is in PLAY state, so I can trust that this isn't the transition period
+        if (getRoadState(neighborData) == EXIT) {//ok, so it could send me a car. Is it?
+          if (handshakeState == NOCAR) {//check and see if they are in HAVECAR
+            if (getHandshakeState(neighborData) == HAVECAR) {
+              handshakeState = READY;
+            }
+          } else if (handshakeState == READY) {
+            if (getHandshakeState(neighborData) == CARSENT) {
+              //THEY HAVE SENT THE CAR. BECOME THE ACTIVE GUY
+              handshakeState = HAVECAR;
+              haveCar = true;
+              currentSpeed = 1;
+              currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
+              transitTimer.set(currentTransitTime);
             }
           }
         }
       }
-    }//end entrance checks
+    } else {//there's nothing on my entrance face. Hmm...
+      handshakeState = NOCAR;
+    }
   }//end haveCar checks
 }
 
