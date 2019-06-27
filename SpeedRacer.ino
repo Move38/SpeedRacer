@@ -149,19 +149,20 @@ void setupLoop() {
         faceRoadInfo[f] = SIDEWALK;
       }
 
-      //assign entrance semi-randomly
+      //assign entrance/exit semi-randomly
       FOREACH_FACE(f) {
-        if (!hasEntrance) {//only keep looking if no entrance assigned
+        if (!hasExit) {//only keep looking if no entrance/exit assigned
           if (!isValueReceivedOnFaceExpired(f)) { //something here
+            hasExit = true;
+            exitFace = f;
+            setRoadInfoOnFace(EXIT, exitFace);
+
             hasEntrance = true;
-            entranceFace = (exitFace + 3) % 6;
+            entranceFace = (f + 3) % 6;
             setRoadInfoOnFace(ENTRANCE, entranceFace);
           }
         }
       }
-
-      //choose an exit
-      assignExit();
 
       //start the car
       haveCar = true;
@@ -245,15 +246,9 @@ void assignExit() {
 
   //so I've made it to the end of the preferred exit check. Do I have an exit?
   if (!hasExit) {
-    if (!hasEntrance) { //this only happens on the first link in the chain
-      hasExit = true;
-      exitFace = random(5);
-      setRoadInfoOnFace(EXIT, exitFace);
-    } else {
-      hasExit = true;
-      exitFace = (entranceFace + random(2)) % 6;
-      setRoadInfoOnFace(EXIT, exitFace);
-    }
+    hasExit = true;
+    exitFace = (entranceFace + random(2) + 2) % 6;
+    setRoadInfoOnFace(EXIT, exitFace);
   }
 }
 
