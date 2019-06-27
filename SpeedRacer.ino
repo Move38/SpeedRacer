@@ -329,9 +329,7 @@ void gameLoopRoad() {
       if (!isValueReceivedOnFaceExpired(entranceFace)) {//there's some on my entrance face
         byte neighborData = getLastValueReceivedOnFace(entranceFace);
         if (getGameState(neighborData) == PLAY) { //this guy is in PLAY state, so I can trust that this isn't the transition period
-          if (getRoadState(neighborData) == FREEAGENT) {//uh oh, it's a loose one. Best become loose as well
-            looseReset();
-          } else if (getRoadState(neighborData) == EXIT) {//ok, so it could send me a car. Is it?
+          if (getRoadState(neighborData) == EXIT) {//ok, so it could send me a car. Is it?
             if (handshakeState == NOCAR) {//check and see if they are in HAVECAR
               if (getHandshakeState(neighborData) == HAVECAR) {
                 handshakeState = READY;
