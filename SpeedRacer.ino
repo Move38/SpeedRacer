@@ -141,6 +141,7 @@ void setupLoop() {
   if (!isAlone()) {
     if (buttonDoubleClicked()) {
       gameState = PLAY;
+      handshakeState = HAVECAR;
       playState = ENDPOINT;
       currentSpeed = 1;
       currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
@@ -321,7 +322,6 @@ void gameLoopRoad() {
       looseReset();
     }
 
-
     //check your entrance face for... things happening
     if (!hasEntrance) {
       //sp.println("ERR-2");
@@ -351,16 +351,6 @@ void gameLoopRoad() {
       }
     }//end entrance checks
   }//end haveCar checks
-
-  //and no matter what, check to hear crashes elsewhere
-  FOREACH_FACE(f) {
-    if (!isValueReceivedOnFaceExpired(f)) {
-      byte neighborData = getLastValueReceivedOnFace(f);
-      if (getGameState(neighborData) == CRASH) {
-        crashReset();
-      }
-    }
-  }
 }
 
 void looseReset() {
@@ -436,16 +426,27 @@ void playGraphics() {
         setColorOnFace(MAGENTA, f);
         break;
       case ENTRANCE:
-        setColorOnFace(GREEN, f);
+        setColorOnFace(YELLOW, f);
         break;
       case EXIT:
         setColorOnFace(YELLOW, f);
         break;
       case SIDEWALK:
-        if (haveCar) {
-          setColorOnFace(dim(WHITE, 100), f);
-        } else {
-          setColorOnFace(OFF, f);
+
+        //NOCAR, HAVECAR, READY, CARSENT
+        switch (handshakeState) {
+          case NOCAR:
+            setColorOnFace(OFF, f);
+            break;
+          case HAVECAR:
+            setColorOnFace(dim(WHITE, 100), f);
+            break;
+          case READY:
+            setColorOnFace(dim(YELLOW, 100), f);
+            break;
+          case CARSENT:
+            setColorOnFace(dim(RED, 100), f);
+            break;
         }
         break;
     }
