@@ -44,7 +44,7 @@ bool haveCar = false;
 word carProgress = 0;//from 0-100 is the regular progress
 
 byte currentSpeed = 1;
-#define SPEED_INCREMENTS 100
+#define SPEED_INCREMENTS 25
 word currentTransitTime;
 #define MIN_TRANSIT_TIME 750
 #define MAX_TRANSIT_TIME 1500
@@ -293,16 +293,22 @@ void gameLoopRoad() {
           if (getHandshakeState(neighborData) == READY) {
             handshakeState = CARSENT;
             haveCar = false;
-            //TODO: DATAGRAM
+
+            byte speedDatagram[1];
+            if ((entranceFace == (exitFace + 3) % 6) && currentSpeed < SPEED_INCREMENTS) {
+              speedDatagram[0] = currentSpeed + 1;
+            } else {
+              speedDatagram[0] = currentSpeed;
+            }
+            sendDatagramOnFace(&speedDatagram, sizeof(speedDatagram), exitFace);
+
           } else {
             //CRASH because not ready
-            //sp.println("CRASH here");
             crashReset();
             crashHere = true;
           }
         } else {
           //CRASH crash because not entrance
-          //sp.println("CRASH here");
           crashReset();
           crashHere = true;
         }
@@ -342,12 +348,20 @@ void gameLoopRoad() {
               }
             } else if (handshakeState == READY) {
               if (getHandshakeState(neighborData) == CARSENT) {
-                //THEY HAVE SENT THE CAR. BECOME THE ACTIVE GUY
-                handshakeState = HAVECAR;
-                haveCar = true;
-                currentSpeed = 1;
-                currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
-                transitTimer.set(currentTransitTime);
+
+                //look for the speedDatagram
+                if (isDatagramReadyOnFace(entranceFace)) {//is there a packet?
+                  if (getDatagramLengthOnFace(entranceFace) == 1) {//is it the right length?
+                    byte *data = (byte *) getDatagramOnFace(entranceFace);//grab the data
+                    currentSpeed = data[0];
+                    //THEY HAVE SENT THE CAR. BECOME THE ACTIVE GUY
+                    handshakeState = HAVECAR;
+                    haveCar = true;
+                    currentSpeed = 1;
+                    currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
+                    transitTimer.set(currentTransitTime);
+                  }
+                }
               }
             }
           }
@@ -442,7 +456,7 @@ void playGraphics() {
             setColorOnFace(OFF, f);
             break;
           case HAVECAR:
-            setColorOnFace(WHITE, f);
+            setColorOnFace(dim(WHITE, currentSpeed * 20), f);
             break;
           case READY:
             setColorOnFace(dim(YELLOW, 100), f);
