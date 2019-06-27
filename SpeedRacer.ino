@@ -41,7 +41,6 @@ bool hasExit = false;
 byte exitFace = 0;
 
 bool haveCar = false;
-bool carPassed = false;
 word carProgress = 0;//from 0-100 is the regular progress
 
 byte currentSpeed = 1;
@@ -167,7 +166,6 @@ void setupLoop() {
 
       //start the car
       haveCar = true;
-      carPassed = false;
     }
   }
 }
@@ -294,7 +292,6 @@ void gameLoopRoad() {
         if (getRoadState(neighborData) == ENTRANCE) {
           if (getHandshakeState(neighborData) == READY) {
             handshakeState = CARSENT;
-            carPassed = true;
             haveCar = false;
             //TODO: DATAGRAM
           } else {
@@ -321,6 +318,15 @@ void gameLoopRoad() {
     if (isAlone()) {
       looseReset();
     }
+
+    if (handshakeState == CARSENT) {
+      if (!isValueReceivedOnFaceExpired(exitFace)) {//there's some on my entrance face
+        if (getHandshakeState(getLastValueReceivedOnFace(exitFace)) == HAVECAR) {//the car has been successfully passed
+          handshakeState = NOCAR;
+        }
+      }
+    }
+
 
     //check your entrance face for... things happening
     if (!hasEntrance) {
@@ -356,7 +362,6 @@ void looseReset() {
   playState = LOOSE;
   handshakeState = NOCAR;
   haveCar = false;
-  carPassed = false;
   currentSpeed = 1;
   entranceFace = 6;
   hasEntrance = false;
@@ -424,7 +429,7 @@ void playGraphics() {
         setColorOnFace(MAGENTA, f);
         break;
       case ENTRANCE:
-        setColorOnFace(YELLOW, f);
+        setColorOnFace(GREEN, f);
         break;
       case EXIT:
         setColorOnFace(YELLOW, f);
@@ -437,7 +442,7 @@ void playGraphics() {
             setColorOnFace(OFF, f);
             break;
           case HAVECAR:
-            setColorOnFace(dim(WHITE, 100), f);
+            setColorOnFace(WHITE, f);
             break;
           case READY:
             setColorOnFace(dim(YELLOW, 100), f);
