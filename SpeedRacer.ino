@@ -229,7 +229,7 @@ void assignExit() {
 
   //check to see if a preferred exit face exists
   FOREACH_FACE(f) {
-    if (!hasExit) {
+    if (!hasExit) {//only do all this if you still need an exit
       if (isValidExit(f)) {
         if (!isValueReceivedOnFaceExpired(f)) {
           byte neighborData = getLastValueReceivedOnFace(f);
@@ -252,11 +252,11 @@ void assignExit() {
 }
 
 bool isValidExit(byte face) {
-  if (face == (entranceFace + 2) & 6) {
+  if (face == (entranceFace + 2) % 6) {
     return true;
-  } else if (face == (entranceFace + 3) & 6) {
+  } else if (face == (entranceFace + 3) % 6) {
     return true;
-  } else if (face == (entranceFace + 4) & 6) {
+  } else if (face == (entranceFace + 4) % 6) {
     return true;
   } else {
     return false;
