@@ -129,32 +129,44 @@ void setupLoop() {
     if (!isValueReceivedOnFaceExpired(f)) { //something here
       if (getGameState(getLastValueReceivedOnFace(f)) == PLAY) {//transition to PLAY
         gameState = PLAY;
+        playState = LOOSE;
+        FOREACH_FACE(f) {
+          faceRoadInfo[f] = FREEAGENT;
+        }
       }
     }
   }
 
-  //listen for double click
-  if (buttonDoubleClicked()) {
-    //    sp.println(F("I'm starting the PLAY"));
-    gameState = PLAY;
-    playState = ENDPOINT;
-    currentSpeed = 1;
-    currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
-    transitTimer.set(currentTransitTime);
-    FOREACH_FACE(f) {
-      faceRoadInfo[f] = SIDEWALK;
+  //listen for double click, but only if not alone
+  if (!isAlone()) {
+    if (buttonDoubleClicked()) {
+      gameState = PLAY;
+      playState = ENDPOINT;
+      currentSpeed = 1;
+      currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
+      transitTimer.set(currentTransitTime);
+      FOREACH_FACE(f) {
+        faceRoadInfo[f] = SIDEWALK;
+      }
+
+      //assign entrance semi-randomly
+      FOREACH_FACE(f) {
+        if (!hasEntrance) {//only keep looking if no entrance assigned
+          if (!isValueReceivedOnFaceExpired(f)) { //something here
+            hasEntrance = true;
+            entranceFace = (exitFace + 3) % 6;
+            setRoadInfoOnFace(ENTRANCE, entranceFace);
+          }
+        }
+      }
+
+      //choose an exit
+      assignExit();
+
+      //start the car
+      haveCar = true;
+      carPassed = false;
     }
-
-    //choose an exit
-    assignExit();
-
-    //now that we've set an exit, we'll put the entrance opposite
-    hasEntrance = true;
-    entranceFace = (exitFace + 3) % 6;
-    setRoadInfoOnFace(ENTRANCE, entranceFace);
-
-    haveCar = true;
-    carPassed = false;
   }
 }
 
@@ -214,6 +226,7 @@ void gameLoopLoose() {
 }
 
 void assignExit() {
+
   //check to see if a preferred exit face exists
   FOREACH_FACE(f) {
     if (!hasExit) {
@@ -291,19 +304,19 @@ void gameLoopRoad() {
           } else {
             //CRASH because not ready
             //sp.println("CRASH here");
-            gameState = CRASH;
+            crashReset();
             crashHere = true;
           }
         } else {
           //CRASH crash because not entrance
           //sp.println("CRASH here");
-          gameState = CRASH;
+          crashReset();
           crashHere = true;
         }
       } else {
         //CRASH because not there!
         //sp.println("CRASH here");
-        gameState = CRASH;
+        crashReset();
         crashHere = true;
       }
     }
@@ -349,8 +362,7 @@ void gameLoopRoad() {
     if (!isValueReceivedOnFaceExpired(f)) {
       byte neighborData = getLastValueReceivedOnFace(f);
       if (getGameState(neighborData) == CRASH) {
-        gameState = CRASH;
-        //sp.println("CRASH elsewhere");
+        crashReset();
       }
     }
   }
@@ -376,17 +388,12 @@ void looseReset() {
 void crashReset() {
   looseReset();
   gameState = CRASH;
-  //isOrigin = false;
-  //isPathfinding = false;
-  //pathFound = false;
-  crashHere = false;
 }
 
 void gameReset() {
-  looseReset();
   crashReset();
+  crashHere = false;
   gameState = SETUP;
-  //sp.println("RESET");
 }
 
 void crashLoop() {
@@ -395,7 +402,6 @@ void crashLoop() {
     if (!isValueReceivedOnFaceExpired(f)) { //something here
       if (getGameState(getLastValueReceivedOnFace(f)) == SETUP) {//transition to PATHFIND
         gameState = SETUP;
-        //sp.println("Sent back to SETUP");
       }
     }
   }
