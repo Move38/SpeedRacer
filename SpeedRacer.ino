@@ -46,7 +46,7 @@ bool haveCar = false;
 word carProgress = 0;//from 0-100 is the regular progress
 
 byte currentSpeed = 1;
-#define SPEED_INCREMENTS 20
+#define SPEED_INCREMENTS 50
 word currentTransitTime;
 #define MIN_TRANSIT_TIME 800
 #define MAX_TRANSIT_TIME 1200
@@ -300,7 +300,9 @@ void gameLoopRoad() {
             haveCar = false;
 
             byte speedDatagram[1];
-            if ((entranceFace == (exitFace + 3) % 6) && currentSpeed < SPEED_INCREMENTS) {
+            if ((entranceFace == (exitFace + 3) % 6) && currentSpeed +2  <= SPEED_INCREMENTS) {//STRAIGHTAWAY
+              speedDatagram[0] = currentSpeed + 2;
+            } else if (currentSpeed + 1 <= SPEED_INCREMENTS) {
               speedDatagram[0] = currentSpeed + 1;
             } else {
               speedDatagram[0] = currentSpeed;
