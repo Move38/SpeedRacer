@@ -46,7 +46,7 @@ bool haveCar = false;
 word carProgress = 0;//from 0-100 is the regular progress
 
 byte currentSpeed = 1;
-#define SPEED_INCREMENTS 50
+#define SPEED_INCREMENTS 35
 word currentTransitTime;
 #define MIN_TRANSIT_TIME 800
 #define MAX_TRANSIT_TIME 1200
