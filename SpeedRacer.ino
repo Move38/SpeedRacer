@@ -112,6 +112,9 @@ void loop() {
   if (buttonLongPressed()) {
     gameReset();
   }
+
+  //for safety, clear all unused inputs
+  clearButtons();
 }
 
 void setupLoop() {
@@ -327,6 +330,7 @@ void gameLoopRoad() {
     //under any circumstances, you should go loose if you're alone
     if (isAlone()) {
       looseReset();
+      gameState = SETUP;
     }
 
     if (handshakeState == CARSENT) {
@@ -395,6 +399,7 @@ void looseReset() {
   hasEntrance = false;
   exitFace = 6;
   hasExit = false;
+  crashHere = false;
 
   FOREACH_FACE(f) {
     faceRoadInfo[f] = FREEAGENT;
@@ -408,7 +413,6 @@ void crashReset() {
 
 void gameReset() {
   crashReset();
-  crashHere = false;
   gameState = SETUP;
 }
 
@@ -448,6 +452,10 @@ void setupGraphics () {
       setColorOnFace(YELLOW, f);
     }
   }
+
+  if (isAlone()) {
+    setColor(MAGENTA);
+  }
 }
 
 void playGraphics() {
@@ -473,7 +481,7 @@ void playGraphics() {
             setColorOnFace(WHITE, f);
             break;
           case READY:
-            setColorOnFace(dim(YELLOW, 100), f);
+            setColorOnFace(dim(WHITE, 25), f);
             break;
           case CARSENT:
             setColorOnFace(dim(RED, 100), f);
@@ -506,6 +514,13 @@ void crashGraphics() {
   } else {
     setColor(ORANGE);
   }
+}
+
+void clearButtons() {
+  buttonPressed();
+  buttonSingleClicked();
+  buttonDoubleClicked();
+  buttonLongPressed();
 }
 
 /*
