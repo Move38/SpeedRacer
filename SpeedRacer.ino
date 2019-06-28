@@ -33,6 +33,8 @@ byte faceRoadInfo[6];
 
 enum handshakeStates {NOCAR, HAVECAR, READY, CARSENT};
 byte handshakeState = NOCAR;
+Timer datagramTimeout;
+#define DATAGRAM_TIMEOUT_LIMIT 150
 
 bool hasEntrance = false;
 byte entranceFace = 0;
@@ -302,6 +304,8 @@ void gameLoopRoad() {
             }
             sendDatagramOnFace(&speedDatagram, sizeof(speedDatagram), exitFace);
 
+            datagramTimeout.set(DATAGRAM_TIMEOUT_LIMIT);
+
           } else {
             //CRASH because not ready
             crashReset();
@@ -326,9 +330,20 @@ void gameLoopRoad() {
     }
 
     if (handshakeState == CARSENT) {
-      if (!isValueReceivedOnFaceExpired(exitFace)) {//there's some on my entrance face
+      if (!isValueReceivedOnFaceExpired(exitFace)) {//there's some on my exit face
         if (getHandshakeState(getLastValueReceivedOnFace(exitFace)) == HAVECAR) {//the car has been successfully passed
           handshakeState = NOCAR;
+        }
+      } else {//so... I've lost contact with my the place I sent the car. That seems bad. CRASH!
+        crashReset();
+        crashHere = true;
+      }
+
+      //also, if I'm still in CARSENT and my datagram timeout has expired, then we can assume the car is lost and we've crashed
+      if (handshakeState == CARSENT) {
+        if (datagramTimeout.isExpired()) {
+          crashReset();
+          crashHere = true;
         }
       }
     }
