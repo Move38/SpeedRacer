@@ -44,10 +44,10 @@ bool haveCar = false;
 word carProgress = 0;//from 0-100 is the regular progress
 
 byte currentSpeed = 1;
-#define SPEED_INCREMENTS 25
+#define SPEED_INCREMENTS 20
 word currentTransitTime;
-#define MIN_TRANSIT_TIME 750
-#define MAX_TRANSIT_TIME 1500
+#define MIN_TRANSIT_TIME 800
+#define MAX_TRANSIT_TIME 1200
 Timer transitTimer;
 
 //CRASH DATA
@@ -357,7 +357,6 @@ void gameLoopRoad() {
                     //THEY HAVE SENT THE CAR. BECOME THE ACTIVE GUY
                     handshakeState = HAVECAR;
                     haveCar = true;
-                    currentSpeed = 1;
                     currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
                     transitTimer.set(currentTransitTime);
                   }
@@ -456,7 +455,7 @@ void playGraphics() {
             setColorOnFace(OFF, f);
             break;
           case HAVECAR:
-            setColorOnFace(dim(WHITE, currentSpeed * 20), f);
+            setColorOnFace(WHITE, f);
             break;
           case READY:
             setColorOnFace(dim(YELLOW, 100), f);
