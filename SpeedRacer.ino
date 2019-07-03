@@ -228,6 +228,12 @@ void gameLoopLoose() {
     setRoadInfoOnFace(ENTRANCE, entranceFace);
     assignExit();
   }
+
+  //if I become alone, do the loose reset thing and go back to setup
+  if (isAlone()) {
+    looseReset();
+    gameState = SETUP;
+  }
 }
 
 void assignExit() {
@@ -300,7 +306,7 @@ void gameLoopRoad() {
             haveCar = false;
 
             byte speedDatagram[1];
-            if ((entranceFace == (exitFace + 3) % 6) && currentSpeed +2  <= SPEED_INCREMENTS) {//STRAIGHTAWAY
+            if ((entranceFace == (exitFace + 3) % 6) && currentSpeed + 2  <= SPEED_INCREMENTS) { //STRAIGHTAWAY
               speedDatagram[0] = currentSpeed + 2;
             } else if (currentSpeed + 1 <= SPEED_INCREMENTS) {
               speedDatagram[0] = currentSpeed + 1;
