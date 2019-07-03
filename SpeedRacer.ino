@@ -259,7 +259,17 @@ void assignExit() {
   //so I've made it to the end of the preferred exit check. Do I have an exit?
   if (!hasExit) {
     hasExit = true;
-    exitFace = (entranceFace + random(2) + 2) % 6;
+    if (random(1)) {//asking "Should I turn?"
+      exitFace = (entranceFace + 3) % 6;//go straight
+    } else {
+      if (random(1)) {
+        exitFace = (entranceFace + 2) % 6;//go left
+      } else {
+        exitFace = (entranceFace + 4) % 6;//go right
+      }
+    }
+
+
     setRoadInfoOnFace(EXIT, exitFace);
   }
 }
