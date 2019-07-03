@@ -1,7 +1,7 @@
-# Speed Racer (alt. Flow Racer)
+# Speed Racer
 ###### by Move38
 
-_INSERT GIF OF GAMEPLAY_
+![Gif of Wallace and Grommit go faster](https://media.giphy.com/media/3oz8xtBx06mcZWoNJm/giphy.gif)
   
 | Number of Blinks | Number of Players | Duration of Gameplay | Recommended Ages |
 |------------------|:-----------------:|:--------------------:|-----------------:|
@@ -11,9 +11,9 @@ _INSERT GIF OF GAMEPLAY_
 Drive as long and far as you can! 
 
 ## Setup
-Start with 2 Blinks, place them together, then place a third Blink attached to one of the red dots. You have now chosen a direction, continue to add them onto the place where the red dot shows up. Once you have placed all of your Blinks, press the first one at the end you started from. The car will start racing towards the end.
-
-To reset the game, simply separate the Blinks, they will turn Yellow and be ready for a new game.
+Place your Blinks in a line. Double-click a Blink at the end of the line to spawn a car. The car will start racing down the road, slowly, at first.
 
 ## Gameplay
-Once the car has left a Blink, you can remove it and then place it at the end the car is racing towards. Keep providing road ahead, the car gets faster each time it revisits a Blink it has seen before. Get your Blinks into a perfect loop and you win...
+Keep building road ahead of the car, it needs to be attached in the direction that the road is saying it needs to go. i.e. place a Blink at the end of the road with the yellow light on. Once the car has entered a new Blink, you can remove it and then place it at the end the car is racing towards. Keep providing road ahead, the car gets faster the farther it gets. Get your Blinks into a perfect loop and you win...
+
+If you crash because the car drives off the end of the road _insert gif of thelma and louise_ you simply reset the Blinks by double clicking a single Blink.
