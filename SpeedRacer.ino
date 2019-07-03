@@ -55,6 +55,8 @@ Timer transitTimer;
 //CRASH DATA
 bool crashHere = false;
 
+
+Timer entranceBlinkTimer;
 #define CAR_FADE_IN_DIST   200   // kind of like headlights
 long carFadeOutDistance = 40 * currentSpeed; // the tail should have a relationship with the speed being travelled
 
@@ -473,7 +475,25 @@ void playGraphics() {
         setColorOnFace(MAGENTA, f);
         break;
       case ENTRANCE:
-        setColorOnFace(GREEN, f);
+        //do flashing if you have no neighbor
+        if (isValueReceivedOnFaceExpired(f)) {
+          setColorOnFace(YELLOW, f);
+
+          if (entranceBlinkTimer.isExpired()) {
+            entranceBlinkTimer.set(1350);
+            setColorOnFace(YELLOW, f);
+          } else if (entranceBlinkTimer.getRemaining() > 600) {
+            setColorOnFace(YELLOW, f);
+          } else if (entranceBlinkTimer.getRemaining() > 400) {
+            setColorOnFace(OFF, f);
+          } else if (entranceBlinkTimer.getRemaining() < 200) {
+            setColorOnFace(OFF, f);
+          } else {
+            setColorOnFace(YELLOW, f);
+          }
+        } else {
+          setColorOnFace(YELLOW, f);
+        }
         break;
       case EXIT:
         setColorOnFace(YELLOW, f);
@@ -498,6 +518,7 @@ void playGraphics() {
         break;
     }
   }
+
 
   if (haveCar) {
     //    carProgress = (100 * (currentTransitTime - transitTimer.getRemaining())) / currentTransitTime;
