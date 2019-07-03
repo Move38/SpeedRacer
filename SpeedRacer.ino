@@ -43,6 +43,7 @@ bool hasExit = false;
 byte exitFace = 0;
 
 bool haveCar = false;
+bool hadCar = false;
 word carProgress = 0;//from 0-100 is the regular progress
 
 byte currentSpeed = 1;
@@ -316,6 +317,7 @@ void gameLoopRoad() {
           if (getHandshakeState(neighborData) == READY) {
             handshakeState = CARSENT;
             haveCar = false;
+            hadCar = true;
 
             byte speedDatagram[1];
             if ((entranceFace == (exitFace + 3) % 6) && currentSpeed + 2  <= SPEED_INCREMENTS) { //STRAIGHTAWAY
@@ -414,6 +416,7 @@ void looseReset() {
   playState = LOOSE;
   handshakeState = NOCAR;
   haveCar = false;
+  hadCar = false;
   currentSpeed = 1;
   entranceFace = 6;
   hasEntrance = false;
@@ -466,71 +469,59 @@ byte getHandshakeState(byte neighborData) {
 }
 
 void setupGraphics () {
-  setColor(CYAN);
-  FOREACH_FACE(f) {
-    if (connectedFaces[f] == true) {
-      setColorOnFace(YELLOW, f);
-    }
-  }
-
-  if (isAlone()) {
-    setColor(MAGENTA);
-  }
+  standbyGraphics();
 }
 
 void playGraphics() {
   FOREACH_FACE(f) {
     switch (faceRoadInfo[f]) {
       case FREEAGENT:
-        setColorOnFace(MAGENTA, f);
+        standbyGraphics();
+        return; // if one of us is a free agent, we all are
         break;
       case ENTRANCE:
         //do flashing if you have no neighbor
-        if (isValueReceivedOnFaceExpired(f)) {
-          setColorOnFace(YELLOW, f);
-
-          if (entranceBlinkTimer.isExpired()) {
-            entranceBlinkTimer.set(1350);
+        if(!hadCar) {
+          if (isValueReceivedOnFaceExpired(f)) {
             setColorOnFace(YELLOW, f);
-          } else if (entranceBlinkTimer.getRemaining() > 600) {
-            setColorOnFace(YELLOW, f);
-          } else if (entranceBlinkTimer.getRemaining() > 400) {
-            setColorOnFace(OFF, f);
-          } else if (entranceBlinkTimer.getRemaining() < 200) {
-            setColorOnFace(OFF, f);
+  
+            if (entranceBlinkTimer.isExpired()) {
+              entranceBlinkTimer.set(1350);
+              setColorOnFace(YELLOW, f);
+            } else if (entranceBlinkTimer.getRemaining() > 600) {
+              setColorOnFace(YELLOW, f);
+            } else if (entranceBlinkTimer.getRemaining() > 400) {
+              setColorOnFace(OFF, f);
+            } else if (entranceBlinkTimer.getRemaining() < 200) {
+              setColorOnFace(OFF, f);
+            } else {
+              setColorOnFace(YELLOW, f);
+            }
           } else {
             setColorOnFace(YELLOW, f);
-          }
-        } else {
-          setColorOnFace(YELLOW, f);
+          } 
+        }
+        else {
+          setColorOnFace(OFF, f);
         }
         break;
       case EXIT:
-        setColorOnFace(YELLOW, f);
+        if(!hadCar) {
+          setColorOnFace(YELLOW, f);
+        }
+        else {
+          setColorOnFace(OFF, f);
+        }
         break;
       case SIDEWALK:
-
-        //NOCAR, HAVECAR, READY, CARSENT
-        switch (handshakeState) {
-          case NOCAR:
-            setColorOnFace(OFF, f);
-            break;
-          case HAVECAR:
-            setColorOnFace(WHITE, f);
-            break;
-          case READY:
-            setColorOnFace(dim(WHITE, 25), f);
-            break;
-          case CARSENT:
-            setColorOnFace(dim(RED, 100), f);
-            break;
-        }
+        setColorOnFace(OFF, f);
         break;
     }
   }
 
 
   if (haveCar) {
+    setColor(WHITE);
     //    carProgress = (100 * (currentTransitTime - transitTimer.getRemaining())) / currentTransitTime;
     //    sp.print(F("car: "));
     //    sp.println(carProgress);
@@ -552,6 +543,32 @@ void crashGraphics() {
     setColor(RED);
   } else {
     setColor(ORANGE);
+  }
+}
+
+void standbyGraphics() {
+  // circle around with a trail
+  // 2 with trails on opposite sides
+  long rotation = (millis() / 3) % 360;
+  byte head = rotation / 60;
+  byte brightness;
+
+  FOREACH_FACE(f) {
+
+    byte distFromHead = (6 + head - f) % 6; // returns # of positions away from the head
+    long degFromHead = (360 + rotation - 60 * f) % 360; // returns degrees away from the head
+
+    if (distFromHead >= 3) {
+      distFromHead -= 3;
+      degFromHead -= 180;
+    }
+
+    if (distFromHead < 2) {
+      brightness = 255 - map(degFromHead, 0, 120, 0, 255); // scale the brightness to 8 bits and dimmer based on distance from head
+    } else {
+      brightness = 0; // don't show past the tail of the snake
+    }
+    setFaceColor(f, dim(YELLOW, brightness));
   }
 }
 
