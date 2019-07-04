@@ -46,6 +46,13 @@ bool haveCar = false;
 bool hadCar = false;
 word carProgress = 0;//from 0-100 is the regular progress
 
+bool isCarPassed[6];
+uint32_t timeCarPassed[6];
+byte carBrightnessOnFace[6];
+
+#define FADE_DURATION    2500
+#define CRASH_DURATION   600
+
 byte currentSpeed = 1;
 #define SPEED_INCREMENTS 35
 word currentTransitTime;
@@ -53,9 +60,12 @@ word currentTransitTime;
 #define MAX_TRANSIT_TIME 1200
 Timer transitTimer;
 
+word carTime[6];
+byte carBri[6];
+
 //CRASH DATA
 bool crashHere = false;
-
+uint32_t timeOfCrash = 0;
 
 Timer entranceBlinkTimer;
 #define CAR_FADE_IN_DIST   200   // kind of like headlights
@@ -423,6 +433,7 @@ void looseReset() {
   exitFace = 6;
   hasExit = false;
   crashHere = false;
+  resetIsCarPassed();
 
   FOREACH_FACE(f) {
     faceRoadInfo[f] = FREEAGENT;
@@ -432,6 +443,7 @@ void looseReset() {
 void crashReset() {
   looseReset();
   gameState = CRASH;
+  timeOfCrash = millis();
 }
 
 void gameReset() {
@@ -473,76 +485,97 @@ void setupGraphics () {
 }
 
 void playGraphics() {
+
+  setColor(OFF);
+
   FOREACH_FACE(f) {
-    switch (faceRoadInfo[f]) {
-      case FREEAGENT:
-        standbyGraphics();
-        return; // if one of us is a free agent, we all are
-        break;
-      case ENTRANCE:
-        //do flashing if you have no neighbor
-        if(!hadCar) {
-          if (isValueReceivedOnFaceExpired(f)) {
-            setColorOnFace(YELLOW, f);
-  
-            if (entranceBlinkTimer.isExpired()) {
-              entranceBlinkTimer.set(1350);
+
+    // first draw the car fade
+    if (millis() - timeCarPassed[f] > FADE_DURATION) {
+      carBrightnessOnFace[f] = 0;
+    }
+    else {
+      carBrightnessOnFace[f] = 255 - map(millis() - timeCarPassed[f], 0, FADE_DURATION, 0, 255);
+    }
+
+    setColorOnFace(dim(WHITE, carBrightnessOnFace[f]), f);
+
+    if (haveCar) {
+
+      // check to see if the car passed the face...
+      FOREACH_FACE(f) {
+        // did the car just pass us
+        if (!isCarPassed[f]) {
+          carProgress = (100 * (currentTransitTime - transitTimer.getRemaining())) / currentTransitTime;
+          if (didCarPassFace(f, carProgress, entranceFace, exitFace)) {
+            timeCarPassed[f] = millis();
+            isCarPassed[f] = true;
+          }
+        }
+      }
+    }
+    else {
+
+      switch (faceRoadInfo[f]) {
+        case FREEAGENT:
+          standbyGraphics();
+          return; // if one of us is a free agent, we all are
+          break;
+        case ENTRANCE:
+          //do flashing if you have no neighbor
+          if (!hadCar) {
+            if (isValueReceivedOnFaceExpired(f)) {
               setColorOnFace(YELLOW, f);
-            } else if (entranceBlinkTimer.getRemaining() > 600) {
-              setColorOnFace(YELLOW, f);
-            } else if (entranceBlinkTimer.getRemaining() > 400) {
-              setColorOnFace(OFF, f);
-            } else if (entranceBlinkTimer.getRemaining() < 200) {
-              setColorOnFace(OFF, f);
+
+              if (entranceBlinkTimer.isExpired()) {
+                entranceBlinkTimer.set(1350);
+                setColorOnFace(YELLOW, f);
+              } else if (entranceBlinkTimer.getRemaining() > 600) {
+                setColorOnFace(YELLOW, f);
+              } else if (entranceBlinkTimer.getRemaining() > 400) {
+                // off
+              } else if (entranceBlinkTimer.getRemaining() < 200) {
+                // off
+              } else {
+                setColorOnFace(YELLOW, f);
+              }
             } else {
               setColorOnFace(YELLOW, f);
             }
-          } else {
+          }
+          else {
+            // off
+          }
+          break;
+        case EXIT:
+          if (!hadCar) {
             setColorOnFace(YELLOW, f);
-          } 
-        }
-        else {
-          setColorOnFace(OFF, f);
-        }
-        break;
-      case EXIT:
-        if(!hadCar) {
-          setColorOnFace(YELLOW, f);
-        }
-        else {
-          setColorOnFace(OFF, f);
-        }
-        break;
-      case SIDEWALK:
-        setColorOnFace(OFF, f);
-        break;
+          }
+          else {
+            // off
+          }
+          break;
+        case SIDEWALK:
+          // off
+          break;
+      }
     }
   }
 
 
-  if (haveCar) {
-    setColor(WHITE);
-    //    carProgress = (100 * (currentTransitTime - transitTimer.getRemaining())) / currentTransitTime;
-    //    sp.print(F("car: "));
-    //    sp.println(carProgress);
-    //    //    sp.print(F("time: "));
-    //    //    sp.println(transitTimer.getRemaining());
-    //    //    sp.print(F("cur: "));
-    //    //    sp.println(currentTransitTime);
-    //    //    sp.println("-");
-    //    if (hasEntrance && hasExit) {
-    //      FOREACH_FACE(f) {
-    //        setColorOnFace(getFaceColorBasedOnCarPosition(f, carProgress, entranceFace, exitFace), f);
-    //      }
-    //    }
-  }
 }
 
 void crashGraphics() {
   if (crashHere) {
     setColor(RED);
   } else {
-    setColor(ORANGE);
+    if (millis() - timeOfCrash > CRASH_DURATION) {
+      setColor(OFF);
+    }
+    else {
+      byte bri = 255 - map(millis() - timeOfCrash, 0, CRASH_DURATION, 0, 255);
+      setColor(dim(ORANGE, bri));
+    }
   }
 }
 
@@ -580,164 +613,56 @@ void clearButtons() {
 }
 
 /*
-   fade from the first side to the opposite side
-   front of the fade should be faster than the fall off
-
+   Fade out the car based on a trail length or timing fade away
 */
 
-/*
-  Color getFaceColorBasedOnCarPosition(byte face, byte pos, byte from, byte to) {
-  byte hue, saturation, brightness;
-  byte carFadeInDistance = 20;
-  byte carFadeOutDistance = 50;
+void resetIsCarPassed() {
+  FOREACH_FACE(f) {
+    isCarPassed[f] = false;
+  }
+}
 
-  byte loBound, hiBound;
+bool didCarPassFace(byte face, byte pos, byte from, byte to) {
 
   // are we going straight, turning left, or turning right
-  if ( (from + 6 - to) % 6 == 3 ) {
+  byte center;
+  byte faceRotated = (6 + face - from) % 6;
 
-    byte center;
-    byte faceRotated = (6 + face - from) % 6;
+  if ( (from + 6 - to) % 6 == 3 ) {
     switch ( faceRotated ) { //... rotate to the correct direction
       case 0: center = 0;  break;
       case 1: center = 33; break;
       case 2: center = 67; break;
-      case 3: center = 100;  break;
+      case 3: center = 99;  break;
       case 4: center = 67; break;
       case 5: center = 33; break;
     }
-
-    if (carFadeInDistance > center) {
-      loBound = 0;
-    }
-    else {
-      loBound = center - carFadeInDistance;
-    }
-
-    // we are traveling straight
-    if ( pos < loBound || pos > carFadeOutDistance + center ) {
-      // out of range for us...
-      brightness = 0;
-    }
-
-    else if ( pos < center ) {
-      // fade in
-      brightness = (byte) map(pos, loBound, center, 0, 255);
-    }
-
-    else if ( pos == center ) {
-      brightness = 255;
-    }
-
-    else if ( pos > center ) {
-      // fade out
-      if ( pos - center > carFadeOutDistance) {
-        brightness = 0;
-      }
-      else {
-        brightness = 255 - (byte) map(pos, center, carFadeOutDistance + center, 0, 255);
-      }
-    }
-
   }
-
   else if ( (from + 6 - to) % 6 == 2 ) {
     // we are turning right
-    byte center;
-    byte faceRotated = (6 + face - from) % 6;
     switch ( faceRotated ) { //... rotate to the correct direction
       case 0: center = 0;  break;
       case 1: center = 25; break;
       case 2: center = 50;  break;
       case 3: center = 75; break;
-      case 4: center = 100;  break;
-      case 5: center = 50;  break;
-    }
-
-    if (carFadeInDistance > center) {
-      loBound = 0;
-    }
-    else {
-      loBound = center - carFadeInDistance;
-    }
-
-    // inner side shouldn't light up on the turn
-    if ( faceRotated == 5 || pos < loBound || pos > carFadeOutDistance + center ) {
-      // out of range for us...
-      brightness = 0;
-    }
-
-    else if ( pos < center ) {
-      // fade in
-      brightness = (byte) map(pos, loBound, center, 0, 255);
-    }
-
-    else if ( pos == center ) {
-      brightness = 255;
-    }
-
-    else if ( pos > center ) {
-      // fade out
-      if ( pos - center > carFadeOutDistance) {
-        brightness = 0;
-      }
-      else {
-        brightness = 255 - (byte) map(pos, center, carFadeOutDistance + center, 0, 255);
-
-        sp.print(brightness);
-        sp.print(F(", pos: "));
-        sp.println(pos);
-      }
+      case 4: center = 99;  break;
+      case 5: center = 25;  break;
     }
   }
 
   else if ( (from + 6 - to) % 6 == 4 ) {
     // we are turning left
-    byte center;
-    byte faceRotated = (6 + face - from) % 6;
     switch ( faceRotated ) { //... rotate to the correct direction
       case 0: center = 0;  break;
-      case 1: center = 50;  break;
-      case 2: center = 100;  break;
+      case 1: center = 25;  break;
+      case 2: center = 99;  break;
       case 3: center = 75; break;
       case 4: center = 50;  break;
       case 5: center = 25; break;
     }
-
-    if (carFadeInDistance > center) {
-      loBound = 0;
-    }
-    else {
-      loBound = center - carFadeInDistance;
-    }
-
-    // inner side shouldn't light up on the turn
-    if ( faceRotated == 1 || pos < loBound || pos > carFadeOutDistance + center ) {
-      // out of range for us...
-      brightness = 0;
-    }
-
-    else if ( pos < center ) {
-      // fade in
-      //      brightness = 0;
-      brightness = (byte) map(pos, loBound, center, 0, 255);
-    }
-
-    else if ( pos == center ) {
-      brightness = 255;
-    }
-
-    else if ( pos > center ) {
-      // fade out
-      if ( pos - center > carFadeOutDistance) {
-        brightness = 0;
-      }
-      else {
-        brightness = 255 - (byte) map(pos, center, carFadeOutDistance + center, 0, 255);
-      }
-    }
   }
 
-  return makeColorHSB(0, 0, brightness);
-  }
-*/
+  // if our car position is past our center,
+  // great, we have had the car pass us
+  return pos > center;
+}
