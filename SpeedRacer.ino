@@ -495,7 +495,13 @@ void playGraphics() {
       carBrightnessOnFace[f] = 0;
     }
     else {
-      carBrightnessOnFace[f] = 255 - map(millis() - timeCarPassed[f], 0, FADE_DURATION, 0, 255);
+      // in the beginning, quick fade in
+      if (millis() - timeCarPassed[f] > CAR_FADE_IN_DIST ) {
+        carBrightnessOnFace[f] = 255 - map(millis() - timeCarPassed[f] - CAR_FADE_IN_DIST, 0, FADE_DURATION - CAR_FADE_IN_DIST, 0, 255);
+      }
+      else {
+        carBrightnessOnFace[f] = map(millis() - timeCarPassed[f], 0, CAR_FADE_IN_DIST, 0, 255);
+      }
     }
 
     setColorOnFace(dim(WHITE, carBrightnessOnFace[f]), f);
@@ -567,8 +573,13 @@ void playGraphics() {
 
 void crashGraphics() {
   if (crashHere) {
-    setColor(RED);
+    // Explosion site
+//    setColor(RED);
+    FOREACH_FACE(f) {
+      setColorOnFace(makeColorHSB((millis()/200)%20, 255, sin8_C((f*40+ millis()/2)%255)), f);
+    }
   } else {
+    // flashback or shockwave
     if (millis() - timeOfCrash > CRASH_DURATION) {
       setColor(OFF);
     }
