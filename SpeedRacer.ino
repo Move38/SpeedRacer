@@ -507,7 +507,8 @@ void playGraphics() {
     setColorOnFace(dim(WHITE, carBrightnessOnFace[f]), f);
 
     if (haveCar) {
-
+      setColorOnFace(YELLOW, entranceFace);
+      setColorOnFace(YELLOW, exitFace);
       // check to see if the car passed the face...
       FOREACH_FACE(f) {
         // did the car just pass us
