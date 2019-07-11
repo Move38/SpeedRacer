@@ -81,6 +81,9 @@ void loop() {
     byte sendData = (faceRoadInfo[f] << 4) + (handshakeState[f] << 2);
     setValueSentOnFace(sendData, f);
   }
+
+  //clear button presses
+  buttonSingleClicked();
 }
 
 void looseLoop() {
@@ -117,7 +120,7 @@ void completeRoad(byte startFace) {
   //so we've been fed a starting point
   //we need to assign an exit point based on some rules
   bool foundRoadExit = false;
-  byte currentChoice = startFace + 2 + random(1) + random(1);//assigns a straightaway 50% of the time
+  byte currentChoice = (startFace + 2 + random(1) + random(1)) % 6;//assigns a straightaway 50% of the time
 
   //now run through the legal exits and check for preferred exits
   FOREACH_FACE(f) {
@@ -193,7 +196,7 @@ void roadLoopNoCar() {
 
                   hasDirection = true;
                   entranceFace = f;
-                  findExit(entranceFace);
+                  exitFace = findOtherSide(entranceFace);
                   handshakeState[entranceFace] = HAVECAR;
                   handshakeState[exitFace] = HAVECAR;
                 }
@@ -209,6 +212,40 @@ void roadLoopNoCar() {
   //if you become alone, GO LOOSE
   if (isAlone()) {
     goLoose();
+  }
+
+  //if I'm clicked, I will attempt to spawn the car (only happens if there is a legitimate exit choice)
+  if (buttonSingleClicked()) {
+    spawnCar();
+  }
+}
+
+void spawnCar() {
+  FOREACH_FACE(f) {
+    if (!hasDirection) {
+      if (faceRoadInfo[f] == ROAD) {//this could be my exit
+        if (!isValueReceivedOnFaceExpired(f)) {//there is someone there
+          byte neighborData = getLastValueReceivedOnFace(f);
+          if (getRoadState(neighborData) == ROAD) {//so this is a road I can send to. DO IT ALL
+            //set direction
+            hasDirection = true;
+            exitFace = f;
+            entranceFace = findOppositeSide(exitFace);
+
+            //set outgoing data
+            FOREACH_FACE(ff) {
+              handshakeState[ff] = NOCAR;
+            }
+            handshakeState[exitFace] = HAVECAR;
+
+            // launch car
+            haveCar = true;
+            currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
+            transitTimer.set(currentTransitTime);
+          }
+        }
+      }
+    }
   }
 }
 
@@ -232,11 +269,11 @@ void goLoose() {
   }
 }
 
-void findExit(byte entrance) {
+void findOtherSide(byte entrance) {
   FOREACH_FACE(f) {
     if (isValidExit(entrance, f)) {
       if (faceRoadInfo[f] == ROAD) {
-        exitFace = f;
+        return f;
       }
     }
   }
