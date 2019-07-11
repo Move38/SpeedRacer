@@ -52,7 +52,7 @@ byte carBri[6];
 bool crashHere = false;
 uint32_t timeOfCrash = 0;
 Timer crashTimer;
-#define CRASH_TIME 1500
+#define CRASH_TIME 2500
 
 Timer entranceBlinkTimer;
 #define CAR_FADE_IN_DIST   200   // kind of like headlights
