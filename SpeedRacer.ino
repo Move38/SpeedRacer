@@ -230,7 +230,7 @@ void spawnCar() {
             //set direction
             hasDirection = true;
             exitFace = f;
-            entranceFace = findOppositeSide(exitFace);
+            entranceFace = findOtherSide(exitFace);
 
             //set outgoing data
             FOREACH_FACE(ff) {
@@ -269,7 +269,7 @@ void goLoose() {
   }
 }
 
-void findOtherSide(byte entrance) {
+byte findOtherSide(byte entrance) {
   FOREACH_FACE(f) {
     if (isValidExit(entrance, f)) {
       if (faceRoadInfo[f] == ROAD) {
