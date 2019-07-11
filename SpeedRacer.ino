@@ -56,7 +56,6 @@ Timer crashTimer;
 
 Timer entranceBlinkTimer;
 #define CAR_FADE_IN_DIST   200   // kind of like headlights
-long carFadeOutDistance = 40 * currentSpeed; // the tail should have a relationship with the speed being travelled
 
 void setup() {
   randomize();
@@ -85,30 +84,33 @@ void loop() {
 }
 
 void looseLoop() {
-  //so I look at all faces, see what my options are
-  bool foundRoadNeighbor = false;
-  byte currentChoice = random(5);
-  FOREACH_FACE(f) {
-    //should I still be looking?
-    if (!foundRoadNeighbor) {//only look if I haven't found a road neighbor
-      if (!isValueReceivedOnFaceExpired(f)) {//neighbor!
-        byte neighborData = getLastValueReceivedOnFace(f);
-        if (getRoadState(neighborData) == ROAD) {//so this neighbor is a road. Sweet!
-          foundRoadNeighbor = true;
-          currentChoice = f;
-        } else if (getRoadState(neighborData) == LOOSE) {
-          currentChoice = f;
+  if (!isAlone()) {
+    //so I look at all faces, see what my options are
+    bool foundRoadNeighbor = false;
+    byte currentChoice = random(5);
+    FOREACH_FACE(f) {
+      //should I still be looking?
+      if (!foundRoadNeighbor) {//only look if I haven't found a road neighbor
+        if (!isValueReceivedOnFaceExpired(f)) {//neighbor!
+          byte neighborData = getLastValueReceivedOnFace(f);
+          if (getRoadState(neighborData) == ROAD) {//so this neighbor is a road. Sweet!
+            foundRoadNeighbor = true;
+            currentChoice = f;
+          } else if (getRoadState(neighborData) == LOOSE) {
+            currentChoice = f;
+          }
         }
       }
+      faceRoadInfo[f] = SIDEWALK;
     }
-  }
 
-  //we can be confident that if there's a road neighbor, it's been chosen
-  //failing that, a loose neighbor has been chosen
-  //failing that, it's just random
-  faceRoadInfo[currentChoice] = ROAD;
-  completeRoad(currentChoice);
-  isLoose = false;
+    //we can be confident that if there's a road neighbor, it's been chosen
+    //failing that, a loose neighbor has been chosen
+    //failing that, it's just random
+    faceRoadInfo[currentChoice] = ROAD;
+    completeRoad(currentChoice);
+    isLoose = false;
+  }
 }
 
 void completeRoad(byte startFace) {
@@ -319,7 +321,7 @@ byte getHandshakeState(byte neighborData) {
 
 void basicGraphics() {
   if (isLoose) {
-    setColor(dim(YELLOW, 100));
+    setColor(dim(CYAN, (millis() / 10) % 256));
   } else if (haveCar) {
     FOREACH_FACE(f) {
       if (faceRoadInfo[f] == ROAD) {
@@ -329,7 +331,7 @@ void basicGraphics() {
           setColorOnFace(ORANGE, f);
         }
       } else if (faceRoadInfo[f] == SIDEWALK) {
-        setColorOnFace(OFF, f);
+        setColorOnFace(BLUE, f);
       } else if (faceRoadInfo[f] == CRASH) {
         setColorOnFace(RED, f);
       }
@@ -346,4 +348,3 @@ void basicGraphics() {
     }
   }
 }
-
