@@ -251,21 +251,28 @@ void spawnCar() {
 
 void goLoose() {
   isLoose = true;
+
+  FOREACH_FACE(f) {
+    faceRoadInfo[f] = LOOSE;
+    isCarPassed[f] = false;
+    timeCarPassed[f] = 0;
+    carBrightnessOnFace[f] = 0;
+    carTime[f] = 0;
+    carBri[f] = 0;
+  }
+
+  loseCar();
+}
+
+void loseCar() {
   hasDirection = false;
   haveCar = false;
   carProgress = 0;//from 0-100 is the regular progress
   currentSpeed = 1;
   crashHere = false;
   timeOfCrash = 0;
-
   FOREACH_FACE(f) {
-    faceRoadInfo[f] = LOOSE;
     handshakeState[f] = NOCAR;
-    isCarPassed[f] = false;
-    timeCarPassed[f] = 0;
-    carBrightnessOnFace[f] = 0;
-    carTime[f] = 0;
-    carBri[f] = 0;
   }
 }
 
@@ -320,6 +327,7 @@ void roadLoopCar() {
     if (!isValueReceivedOnFaceExpired(exitFace)) {//there's someone on my exit face
       if (getHandshakeState(getLastValueReceivedOnFace(exitFace)) == HAVECAR) {//the car has been successfully passed
         handshakeState[exitFace] = NOCAR;
+        loseCar();
       }
     }
     //if I'm still in CARSENT and my datagram timeout has expired, then we can assume the car is lost and we've crashed
