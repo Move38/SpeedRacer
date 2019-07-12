@@ -208,7 +208,7 @@ void roadLoopNoCar() {
               //look for the speedDatagram
               if (isDatagramReadyOnFace(f)) {//is there a packet?
                 if (getDatagramLengthOnFace(f) == 3) {//is it the right length?
-                  byte *data = (byte *) getDatagramOnFace(entranceFace);//grab the data
+                  byte *data = (byte *) getDatagramOnFace(f);//grab the data
                   currentSpeed = data[0];
                   currentCarClass = data[1];
                   currentCarHue = data[2];
