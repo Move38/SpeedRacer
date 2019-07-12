@@ -76,10 +76,25 @@ Timer crashTimer;
 Timer entranceBlinkTimer;
 #define CAR_FADE_IN_DIST   200   // kind of like headlights
 
+enum ShockwaveStates {
+  INERT,
+  SHOCKWAVE,
+  TRANSITION
+};
+byte shockwaveState = INERT;
+
+/*
+    SETUP
+*/
+
 void setup() {
   randomize();
   shuffleSearchOrder();
 }
+
+/*
+    LOOP
+*/
 
 void loop() {
   //run loops
@@ -93,12 +108,15 @@ void loop() {
     roadLoopNoCar();
   }
 
+  //shockwave handling
+  shockwaveLoop();
+
   //run graphics
   basicGraphics();
 
   //update communication
   FOREACH_FACE(f) {
-    byte sendData = (faceRoadInfo[f] << 4) + (handshakeState[f] << 2);
+    byte sendData = (faceRoadInfo[f] << 4) + (handshakeState[f] << 2) + shockwaveState;
     setValueSentOnFace(sendData, f);
   }
 
@@ -166,7 +184,7 @@ void completeRoad(byte startFace) {
       }
     }
   }//end face loop
-  
+
   //so after this process, we can be confident that a ROAD has been chosen
   //or failing that, a LOOSE has been chosen
   //or failing that just a random face has been chosen
@@ -394,6 +412,7 @@ void roadLoopCar() {
 }
 
 void crashBlink() {
+  shockwaveState = SHOCKWAVE;
   isLoose = false;
   timeOfCrash = millis();
   crashHere = true;
@@ -410,12 +429,66 @@ void crashLoop() {
   }
 }
 
+/*
+  This function does the following:
+  
+  if inert
+    if neighbor in shockwave
+      shockwave
+  if shockwave
+    if no neighbors are inert
+      trans
+  if trans
+    if no neighbors in shockwave
+      inert
+*/
+void shockwaveLoop() {
+  bool bInert = false;
+  bool bShock = false;
+  bool bTrans = false;
+
+  FOREACH_FACE(f) {
+    if (!isValueReceivedOnFaceExpired(f)) {
+      byte state = getShockwaveState(getLastValueReceivedOnFace(f));
+      if (state == INERT) {
+        bInert = true;
+      }
+      else if (state == SHOCKWAVE) {
+        bShock = true;
+      }
+      else if (state == TRANSITION) {
+        bTrans = true;
+      }
+    }
+  }
+
+  if (shockwaveState == INERT) {
+    if (bShock) {
+      shockwaveState = SHOCKWAVE;
+    }
+  }
+  else if (shockwaveState == SHOCKWAVE) {
+    if (!bInert) {
+      shockwaveState = TRANSITION;
+    }
+  }
+  else if (shockwaveState == TRANSITION) {
+    if (!bShock) {
+      shockwaveState = INERT;
+    }
+  }
+}
+
 byte getRoadState(byte neighborData) {
   return (neighborData >> 4);//1st and 2nd bits
 }
 
 byte getHandshakeState(byte neighborData) {
   return ((neighborData >> 2) & 3);//3rd and 4th bits
+}
+
+byte getShockwaveState(byte neighborData) {
+  return (neighborData & 3);//5th and 6th bits
 }
 
 void basicGraphics() {
@@ -451,6 +524,10 @@ void basicGraphics() {
         setColorOnFace(RED, f);
       }
     }
+  }
+
+  if(shockwaveState != INERT) {
+    setColor(ORANGE);
   }
 }
 
