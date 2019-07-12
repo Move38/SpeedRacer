@@ -276,6 +276,14 @@ void loseCar() {
   }
 }
 
+void resumeRoad() {
+  FOREACH_FACE(f) {
+    faceRoadInfo[f] = SIDEWALK;
+  }
+  faceRoadInfo[entranceFace] = ROAD;
+  faceRoadInfo[exitFace] = ROAD;
+}
+
 byte findOtherSide(byte entrance) {
   FOREACH_FACE(f) {
     if (isValidExit(entrance, f)) {
@@ -352,7 +360,8 @@ void crashBlink() {
 
 void crashLoop() {
   if (crashTimer.isExpired()) {
-    goLoose();
+    loseCar();
+    resumeRoad();
   }
 }
 
