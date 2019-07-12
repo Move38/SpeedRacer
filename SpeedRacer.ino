@@ -46,6 +46,9 @@ word currentTransitTime;
 #define MAX_TRANSIT_TIME 1200
 Timer transitTimer;
 
+byte carHues[4] = {60, 90, 120, 150}; // TODO: Set these colors purposefully
+byte currentCarHue = 0; // index of the car color
+
 word carTime[6];
 byte carBri[6];
 
@@ -249,6 +252,9 @@ void spawnCar() {
             haveCar = true;
             currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
             transitTimer.set(currentTransitTime);
+
+            // choose a hue for this car
+            currentCarHue = random(COUNT_OF(carHues));
           }
         }
       }
@@ -313,10 +319,8 @@ void roadLoopCar() {
           if (getHandshakeState(neighborData) == READY) {
             handshakeState[exitFace] = CARSENT;
 
-            byte speedDatagram[1];
-            if ((entranceFace == (exitFace + 3) % 6) && currentSpeed + 2  <= SPEED_INCREMENTS) { //STRAIGHTAWAY
-              speedDatagram[0] = currentSpeed + 2;
-            } else if (currentSpeed + 1 <= SPEED_INCREMENTS) {
+            byte speedDatagram[3];  // holds speed, speed-limit, car hue
+            if (currentSpeed + 1 <= SPEED_INCREMENTS) {
               speedDatagram[0] = currentSpeed + 1;
             } else {
               speedDatagram[0] = currentSpeed;
