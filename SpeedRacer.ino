@@ -101,6 +101,7 @@ void loop() {
 
   //clear button presses
   buttonSingleClicked();
+  buttonDoubleClicked();
 }
 
 void looseLoop() {
@@ -225,6 +226,8 @@ void roadLoopNoCar() {
                   exitFace = findOtherSide(entranceFace);
                   handshakeState[entranceFace] = HAVECAR;
                   handshakeState[exitFace] = HAVECAR;
+                  
+                  markDatagramReadOnFace( f ); // free datagram buffer
                 }
               }
             }
@@ -273,7 +276,7 @@ void spawnCar(byte carClass) {
             currentCarClass = carClass;
             
             // choose a hue for this car
-            currentCarHue = random(COUNT_OF(carHues));
+            currentCarHue = random(3);
 
             // launch car
             haveCar = true;
