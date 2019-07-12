@@ -113,8 +113,7 @@ void looseLoop() {
     bool foundRoadNeighbor = false;
     bool foundLooseNeighbor = false;
     byte currentChoice;
-    FOREACH_FACE(face) {
-      byte f = searchOrder[face];
+    FOREACH_FACE(f) {
       //should I still be looking?
       if (!foundRoadNeighbor) {//only look if I haven't found a road neighbor
         if (!isValueReceivedOnFaceExpired(f)) {//neighbor!
@@ -129,7 +128,6 @@ void looseLoop() {
         }
       }
     }
-    shuffleSearchOrder(); // thanks random search order, next.
 
     //if we have found any legit neighbor, we can transition out of loose
     if (foundRoadNeighbor || foundLooseNeighbor) {
@@ -153,8 +151,7 @@ void completeRoad(byte startFace) {
   byte currentChoice = (startFace + 2 + random(1) + random(1)) % 6; //random(1) + random(1) -> assigns a straightaway 50% of the time
 
   //now run through the legal exits and check for preferred exits
-  FOREACH_FACE(face) {
-    byte f = searchOrder[face];
+  FOREACH_FACE(f) {
     if (isValidExit(startFace, f)) {
       if (!foundRoadExit) {
         if (!isValueReceivedOnFaceExpired(f)) {//neighbor!
@@ -169,8 +166,7 @@ void completeRoad(byte startFace) {
       }
     }
   }//end face loop
-  shuffleSearchOrder(); // thanks random search order, next.
-
+  
   //so after this process, we can be confident that a ROAD has been chosen
   //or failing that, a LOOSE has been chosen
   //or failing that just a random face has been chosen
