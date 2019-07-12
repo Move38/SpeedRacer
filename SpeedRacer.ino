@@ -40,10 +40,24 @@ byte carBrightnessOnFace[6];
 #define CRASH_DURATION   600
 
 byte currentSpeed = 1;
-#define SPEED_INCREMENTS 35
+
+enum CarClass {
+  STANDARD,
+  BOOSTED
+};
+
+byte currentCarClass = STANDARD;
+
+#define SPEED_INCREMENTS_STANDARD 35
+#define SPEED_INCREMENTS_BOOSTED  70
+
+#define MIN_TRANSIT_TIME_STANDARD 666 // HIGHWAY TO HELL
+#define MAX_TRANSIT_TIME_STANDARD 1200
+#define MIN_TRANSIT_TIME_BOOSTED  200
+#define MAX_TRANSIT_TIME_BOOSTED  1000
+
 word currentTransitTime;
-#define MIN_TRANSIT_TIME 800
-#define MAX_TRANSIT_TIME 1200
+
 Timer transitTimer;
 
 byte carHues[4] = {60, 90, 120, 150}; // TODO: Set these colors purposefully
@@ -201,7 +215,7 @@ void roadLoopNoCar() {
                     handshakeState[ff] = NOCAR;
                   }
                   haveCar = true;
-                  currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
+                  currentTransitTime = map(getSpeedIncrements() - currentSpeed, 0, getSpeedIncrements(), getMinTransitTime(), getMaxTransitTime());
                   transitTimer.set(currentTransitTime);
 
                   hasDirection = true;
@@ -250,7 +264,7 @@ void spawnCar() {
 
             // launch car
             haveCar = true;
-            currentTransitTime = map(SPEED_INCREMENTS - currentSpeed, 0, SPEED_INCREMENTS, MIN_TRANSIT_TIME, MAX_TRANSIT_TIME);
+            currentTransitTime = map(getSpeedIncrements() - currentSpeed, 0, getSpeedIncrements(), getMinTransitTime(), getMaxTransitTime());
             transitTimer.set(currentTransitTime);
 
             // choose a hue for this car
@@ -319,12 +333,14 @@ void roadLoopCar() {
           if (getHandshakeState(neighborData) == READY) {
             handshakeState[exitFace] = CARSENT;
 
-            byte speedDatagram[3];  // holds speed, speed-limit, car hue
-            if (currentSpeed + 1 <= SPEED_INCREMENTS) {
+            byte speedDatagram[3];  // holds speed, car class, car hue
+            if (currentSpeed + 1 <= getSpeedIncrements()) {
               speedDatagram[0] = currentSpeed + 1;
             } else {
               speedDatagram[0] = currentSpeed;
             }
+            speedDatagram[1] = currentCarClass;
+            speedDatagram[2] = currentCarHue;
             sendDatagramOnFace(&speedDatagram, sizeof(speedDatagram), exitFace);
 
             datagramTimeout.set(DATAGRAM_TIMEOUT_LIMIT);
@@ -411,5 +427,36 @@ void basicGraphics() {
         setColorOnFace(RED, f);
       }
     }
+  }
+}
+
+/*
+ * SPEED CONVENIENCE FUNCTIONS
+ */
+
+word getSpeedIncrements() {
+  if(currentCarClass == STANDARD) {
+    return SPEED_INCREMENTS_STANDARD;
+  }
+  else {
+    return SPEED_INCREMENTS_BOOSTED;
+  }
+}
+
+word getMinTransitTime() {
+  if(currentCarClass == STANDARD) {
+    return MIN_TRANSIT_TIME_STANDARD;
+  }
+  else {
+    return MIN_TRANSIT_TIME_BOOSTED;
+  }
+}
+
+word getMaxTransitTime() {
+  if(currentCarClass == STANDARD) {
+    return MAX_TRANSIT_TIME_STANDARD;
+  }
+  else {
+    return MAX_TRANSIT_TIME_BOOSTED;
   }
 }
