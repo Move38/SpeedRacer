@@ -36,8 +36,9 @@ bool isCarPassed[6];
 uint32_t timeCarPassed[6];
 byte carBrightnessOnFace[6];
 
-#define FADE_DURATION    2500
-#define CRASH_DURATION   600
+#define FADE_DURATION       2500
+#define FADE_ROAD_DURATION  500
+#define CRASH_DURATION      600
 
 byte currentSpeed = 1;
 
@@ -112,7 +113,7 @@ void loop() {
   shockwaveLoop();
 
   //run graphics
-  basicGraphics();
+  graphics();
 
   //update communication
   FOREACH_FACE(f) {
@@ -153,6 +154,7 @@ void looseLoop() {
         faceRoadInfo[f] = SIDEWALK;
       }
       faceRoadInfo[currentChoice] = ROAD;
+      entranceFace = currentChoice;       // Helps us draw the road
       completeRoad(currentChoice);
       isLoose = false;
 
@@ -189,6 +191,7 @@ void completeRoad(byte startFace) {
   //or failing that, a LOOSE has been chosen
   //or failing that just a random face has been chosen
   faceRoadInfo[currentChoice] = ROAD;
+  exitFace = currentChoice; // Helps us draw the road
 }
 
 bool isValidExit(byte startFace, byte exitFace) {
@@ -239,6 +242,7 @@ void roadLoopNoCar() {
                     handshakeState[ff] = NOCAR;
                   }
                   haveCar = true;
+                  resetIsCarPassed();
                   currentTransitTime = map(getSpeedIncrements() - currentSpeed, 0, getSpeedIncrements(), getMinTransitTime(), getMaxTransitTime());
                   transitTimer.set(currentTransitTime);
 
@@ -302,6 +306,7 @@ void spawnCar(byte carClass) {
 
             // launch car
             haveCar = true;
+            resetIsCarPassed();
             currentTransitTime = map(getSpeedIncrements() - currentSpeed, 0, getSpeedIncrements(), getMinTransitTime(), getMaxTransitTime());
             transitTimer.set(currentTransitTime);
           }
@@ -409,6 +414,18 @@ void roadLoopCar() {
       }
     }
   }
+
+  // Car progress for animation loop (when did the car pass each face)
+  FOREACH_FACE(f) {
+    // did the car just pass us
+    if (!isCarPassed[f]) {
+      carProgress = (100 * (currentTransitTime - transitTimer.getRemaining())) / currentTransitTime;
+      if (didCarPassFace(f, carProgress, entranceFace, exitFace)) {
+        timeCarPassed[f] = millis();
+        isCarPassed[f] = true;
+      }
+    }
+  }
 }
 
 void crashBlink() {
@@ -431,7 +448,7 @@ void crashLoop() {
 
 /*
   This function does the following:
-  
+
   if inert
     if neighbor in shockwave
       shockwave
@@ -491,42 +508,56 @@ byte getShockwaveState(byte neighborData) {
   return (neighborData & 3);//5th and 6th bits
 }
 
-void basicGraphics() {
-  if (isLoose) {
-    setColor(dim(CYAN, (millis() / 10) % 256));
-  } else if (haveCar) {
-    FOREACH_FACE(f) {
+/*
+   THE REAL DEAL
+*/
+void graphics() {
+  // clear buffer
+  setColor(OFF);
+
+  FOREACH_FACE(f) {
+
+    // first draw the car fade
+    if (millis() - timeCarPassed[f] > FADE_DURATION) {
+      carBrightnessOnFace[f] = 0;
+
+      // draw the road
       if (faceRoadInfo[f] == ROAD) {
-        if (f == entranceFace) {
-          setColorOnFace(GREEN, f);
-        } else if (f == exitFace) {
-          setColorOnFace(ORANGE, f);
-        }
-      } else if (faceRoadInfo[f] == SIDEWALK) {
-        //car colors
-        if (currentCarClass == BOOSTED) {
-          setColorOnFace(WHITE, f);
+        if (millis() - timeCarPassed[f] < FADE_ROAD_DURATION + FADE_DURATION) {
+          byte roadBrightness = (millis() - timeCarPassed[f] - FADE_DURATION)/2;
+          setColorOnFace(dim(YELLOW,roadBrightness), f);
         }
         else {
-          setColorOnFace(makeColorHSB(carHues[currentCarHue], 255, 255), f);
+          setColorOnFace(YELLOW, f);
         }
-      } else if (faceRoadInfo[f] == CRASH) {
-        setColorOnFace(RED, f);
       }
+
     }
-  } else {
-    FOREACH_FACE(f) {
-      if (faceRoadInfo[f] == ROAD) {
-        setColorOnFace(YELLOW, f);
-      } else if (faceRoadInfo[f] == SIDEWALK) {
-        setColorOnFace(OFF, f);
-      } else if (faceRoadInfo[f] == CRASH) {
-        setColorOnFace(RED, f);
+    else {
+      // in the beginning, quick fade in
+      if (millis() - timeCarPassed[f] > CAR_FADE_IN_DIST ) {
+        carBrightnessOnFace[f] = 255 - map(millis() - timeCarPassed[f] - CAR_FADE_IN_DIST, 0, FADE_DURATION - CAR_FADE_IN_DIST, 0, 255);
       }
+      else {
+        carBrightnessOnFace[f] = map(millis() - timeCarPassed[f], 0, CAR_FADE_IN_DIST, 0, 255);
+      }
+
+      // Draw our car
+      if (currentCarClass == STANDARD) {
+        setColorOnFace(makeColorHSB(carHues[currentCarHue], 255, carBrightnessOnFace[f]), f);
+      }
+      else {
+        setColorOnFace(makeColorHSB(carHues[currentCarHue], 0, carBrightnessOnFace[f]), f);
+      }
+
     }
   }
 
-  if(shockwaveState != INERT) {
+  if (isLoose) {
+    standbyGraphics();
+  }
+
+  if (shockwaveState != INERT) {
     setColor(ORANGE);
   }
 }
@@ -577,5 +608,106 @@ void shuffleSearchOrder() {
     byte temp = searchOrder[swapA];
     searchOrder[swapA] = searchOrder[swapB];
     searchOrder[swapB] = temp;
+  }
+}
+
+/*
+   GRAPHICS
+   Fade out the car based on a trail length or timing fade away
+*/
+
+void standbyGraphics() {
+  // circle around with a trail
+  // 2 with trails on opposite sides
+  long rotation = (millis() / 3) % 360;
+  byte head = rotation / 60;
+  byte brightness;
+
+  FOREACH_FACE(f) {
+
+    byte distFromHead = (6 + head - f) % 6; // returns # of positions away from the head
+    long degFromHead = (360 + rotation - 60 * f) % 360; // returns degrees away from the head
+
+    if (distFromHead >= 3) {
+      distFromHead -= 3;
+      degFromHead -= 180;
+    }
+
+    if (distFromHead < 2) {
+      brightness = 255 - map(degFromHead, 0, 120, 0, 255); // scale the brightness to 8 bits and dimmer based on distance from head
+    } else {
+      brightness = 0; // don't show past the tail of the snake
+    }
+    setFaceColor(f, dim(YELLOW, brightness));
+  }
+}
+
+void resetIsCarPassed() {
+  FOREACH_FACE(f) {
+    isCarPassed[f] = false;
+  }
+}
+
+bool didCarPassFace(byte face, byte pos, byte from, byte to) {
+
+  // are we going straight, turning left, or turning right
+  byte center;
+  byte faceRotated = (6 + face - from) % 6;
+
+  if ( (from + 6 - to) % 6 == 3 ) {
+    switch ( faceRotated ) { //... rotate to the correct direction
+      case 0: center = 5;  break;
+      case 1: center = 33; break;
+      case 2: center = 67; break;
+      case 3: center = 95;  break;
+      case 4: center = 67; break;
+      case 5: center = 33; break;
+    }
+  }
+  else if ( (from + 6 - to) % 6 == 2 ) {
+    // we are turning right
+    switch ( faceRotated ) { //... rotate to the correct direction
+      case 0: center = 5;  break;
+      case 1: center = 25; break;
+      case 2: center = 50;  break;
+      case 3: center = 75; break;
+      case 4: center = 95;  break;
+      case 5: center = 25;  break;
+    }
+  }
+
+  //  else if ( (from + 6 - to) % 6 == 4 ) {
+  //    // we are turning left
+  //    switch ( faceRotated ) { //... rotate to the correct direction
+  //      case 0: center = 5;  break;
+  //      case 1: center = 25;  break;
+  //      case 2: center = 95;  break;
+  //      case 3: center = 75; break;
+  //      case 4: center = 50;  break;
+  //      case 5: center = 25; break;
+  //    }
+  //  }
+
+  // if our car position is past our center,
+  // great, we have had the car pass us
+  return pos > center;
+}
+
+void crashGraphics() {
+  if (crashHere) {
+    // Explosion site
+    //    setColor(RED);
+    FOREACH_FACE(f) {
+      setColorOnFace(makeColorHSB((millis() / 200) % 20, 255, sin8_C((f * 40 + millis() / 2) % 255)), f);
+    }
+  } else {
+    // flashback or shockwave
+    if (millis() - timeOfCrash > CRASH_DURATION) {
+      setColor(OFF);
+    }
+    else {
+      byte bri = 255 - map(millis() - timeOfCrash, 0, CRASH_DURATION, 0, 255);
+      setColor(dim(ORANGE, bri));
+    }
   }
 }
