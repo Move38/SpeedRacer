@@ -144,7 +144,7 @@ void completeRoad(byte startFace) {
   //so we've been fed a starting point
   //we need to assign an exit point based on some rules
   bool foundRoadExit = false;
-  byte currentChoice = (startFace + 2 + random(1) + random(1)) % 6;//assigns a straightaway 50% of the time
+  byte currentChoice = (startFace + 2 + random(1) + random(1)) % 6; //random(1) + random(1) -> assigns a straightaway 50% of the time
 
   //now run through the legal exits and check for preferred exits
   FOREACH_FACE(f) {
@@ -206,9 +206,11 @@ void roadLoopNoCar() {
             } else if (getHandshakeState(neighborData) == CARSENT) {
               //look for the speedDatagram
               if (isDatagramReadyOnFace(f)) {//is there a packet?
-                if (getDatagramLengthOnFace(f) == 1) {//is it the right length?
+                if (getDatagramLengthOnFace(f) == 3) {//is it the right length?
                   byte *data = (byte *) getDatagramOnFace(entranceFace);//grab the data
                   currentSpeed = data[0];
+                  currentCarClass = data[1];
+                  currentCarHue = data[2];
 
                   //THEY HAVE SENT THE CAR. BECOME THE ACTIVE GUY
                   FOREACH_FACE(ff) {
@@ -240,11 +242,16 @@ void roadLoopNoCar() {
 
   //if I'm clicked, I will attempt to spawn the car (only happens if there is a legitimate exit choice)
   if (buttonSingleClicked()) {
-    spawnCar();
+    spawnCar(STANDARD);
   }
+  
+  if (buttonDoubleClicked()) {
+    spawnCar(BOOSTED);
+  }
+
 }
 
-void spawnCar() {
+void spawnCar(byte carClass) {
   FOREACH_FACE(f) {
     if (!hasDirection) {
       if (faceRoadInfo[f] == ROAD) {//this could be my exit
@@ -262,13 +269,16 @@ void spawnCar() {
             }
             handshakeState[exitFace] = HAVECAR;
 
+            // set the car class
+            currentCarClass = carClass;
+            
+            // choose a hue for this car
+            currentCarHue = random(COUNT_OF(carHues));
+
             // launch car
             haveCar = true;
             currentTransitTime = map(getSpeedIncrements() - currentSpeed, 0, getSpeedIncrements(), getMinTransitTime(), getMaxTransitTime());
             transitTimer.set(currentTransitTime);
-
-            // choose a hue for this car
-            currentCarHue = random(COUNT_OF(carHues));
           }
         }
       }
@@ -412,7 +422,13 @@ void basicGraphics() {
           setColorOnFace(ORANGE, f);
         }
       } else if (faceRoadInfo[f] == SIDEWALK) {
-        setColorOnFace(BLUE, f);
+        //car colors
+        if(currentCarClass == BOOSTED) {
+          setColorOnFace(WHITE,f);
+        }
+        else{
+          setColorOnFace(makeColorHSB(carHues[currentCarHue],255,255), f);
+        }
       } else if (faceRoadInfo[f] == CRASH) {
         setColorOnFace(RED, f);
       }
@@ -431,11 +447,11 @@ void basicGraphics() {
 }
 
 /*
- * SPEED CONVENIENCE FUNCTIONS
- */
+   SPEED CONVENIENCE FUNCTIONS
+*/
 
 word getSpeedIncrements() {
-  if(currentCarClass == STANDARD) {
+  if (currentCarClass == STANDARD) {
     return SPEED_INCREMENTS_STANDARD;
   }
   else {
@@ -444,7 +460,7 @@ word getSpeedIncrements() {
 }
 
 word getMinTransitTime() {
-  if(currentCarClass == STANDARD) {
+  if (currentCarClass == STANDARD) {
     return MIN_TRANSIT_TIME_STANDARD;
   }
   else {
@@ -453,7 +469,7 @@ word getMinTransitTime() {
 }
 
 word getMaxTransitTime() {
-  if(currentCarClass == STANDARD) {
+  if (currentCarClass == STANDARD) {
     return MAX_TRANSIT_TIME_STANDARD;
   }
   else {
