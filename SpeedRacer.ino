@@ -46,6 +46,8 @@ enum CarClass {
   BOOSTED
 };
 
+byte searchOrder[6] = {0, 1, 2, 3, 4, 5}; // used for searching faces, needs to be shuffled
+
 byte currentCarClass = STANDARD;
 
 #define SPEED_INCREMENTS_STANDARD 35
@@ -76,6 +78,7 @@ Timer entranceBlinkTimer;
 
 void setup() {
   randomize();
+  shuffleSearchOrder();
 }
 
 void loop() {
@@ -110,7 +113,8 @@ void looseLoop() {
     bool foundRoadNeighbor = false;
     bool foundLooseNeighbor = false;
     byte currentChoice;
-    FOREACH_FACE(f) {
+    FOREACH_FACE(face) {
+      byte f = searchOrder[face];
       //should I still be looking?
       if (!foundRoadNeighbor) {//only look if I haven't found a road neighbor
         if (!isValueReceivedOnFaceExpired(f)) {//neighbor!
@@ -125,6 +129,7 @@ void looseLoop() {
         }
       }
     }
+    shuffleSearchOrder(); // thanks random search order, next.
 
     //if we have found any legit neighbor, we can transition out of loose
     if (foundRoadNeighbor || foundLooseNeighbor) {
@@ -148,7 +153,8 @@ void completeRoad(byte startFace) {
   byte currentChoice = (startFace + 2 + random(1) + random(1)) % 6; //random(1) + random(1) -> assigns a straightaway 50% of the time
 
   //now run through the legal exits and check for preferred exits
-  FOREACH_FACE(f) {
+  FOREACH_FACE(face) {
+    byte f = searchOrder[face];
     if (isValidExit(startFace, f)) {
       if (!foundRoadExit) {
         if (!isValueReceivedOnFaceExpired(f)) {//neighbor!
@@ -163,6 +169,7 @@ void completeRoad(byte startFace) {
       }
     }
   }//end face loop
+  shuffleSearchOrder(); // thanks random search order, next.
 
   //so after this process, we can be confident that a ROAD has been chosen
   //or failing that, a LOOSE has been chosen
@@ -226,7 +233,7 @@ void roadLoopNoCar() {
                   exitFace = findOtherSide(entranceFace);
                   handshakeState[entranceFace] = HAVECAR;
                   handshakeState[exitFace] = HAVECAR;
-                  
+
                   markDatagramReadOnFace( f ); // free datagram buffer
                 }
               }
@@ -247,7 +254,7 @@ void roadLoopNoCar() {
   if (buttonSingleClicked()) {
     spawnCar(STANDARD);
   }
-  
+
   if (buttonDoubleClicked()) {
     spawnCar(BOOSTED);
   }
@@ -255,7 +262,8 @@ void roadLoopNoCar() {
 }
 
 void spawnCar(byte carClass) {
-  FOREACH_FACE(f) {
+  FOREACH_FACE(face) {
+    byte f = searchOrder[face];
     if (!hasDirection) {
       if (faceRoadInfo[f] == ROAD) {//this could be my exit
         if (!isValueReceivedOnFaceExpired(f)) {//there is someone there
@@ -274,7 +282,7 @@ void spawnCar(byte carClass) {
 
             // set the car class
             currentCarClass = carClass;
-            
+
             // choose a hue for this car
             currentCarHue = random(3);
 
@@ -287,6 +295,7 @@ void spawnCar(byte carClass) {
       }
     }
   }
+  shuffleSearchOrder(); // thanks random search order, next.
 }
 
 void goLoose() {
@@ -426,11 +435,11 @@ void basicGraphics() {
         }
       } else if (faceRoadInfo[f] == SIDEWALK) {
         //car colors
-        if(currentCarClass == BOOSTED) {
-          setColorOnFace(WHITE,f);
+        if (currentCarClass == BOOSTED) {
+          setColorOnFace(WHITE, f);
         }
-        else{
-          setColorOnFace(makeColorHSB(carHues[currentCarHue],255,255), f);
+        else {
+          setColorOnFace(makeColorHSB(carHues[currentCarHue], 255, 255), f);
         }
       } else if (faceRoadInfo[f] == CRASH) {
         setColorOnFace(RED, f);
@@ -477,5 +486,23 @@ word getMaxTransitTime() {
   }
   else {
     return MAX_TRANSIT_TIME_BOOSTED;
+  }
+}
+
+/*
+   RANDOMIZE OUR SEARCH ORDER
+   reference: http://www.cplusplus.com/reference/algorithm/random_shuffle/
+*/
+
+void shuffleSearchOrder() {
+
+  for (byte i = 5; i > 0; i--) {
+    // start with the right most, replace it with one of the 5 to the left
+    // then move one to the left, and do this with the 4 to the left. 3, 2, 1
+    byte swapA = i;
+    byte swapB = random(i - 1);
+    byte temp = searchOrder[swapA];
+    searchOrder[swapA] = searchOrder[swapB];
+    searchOrder[swapB] = temp;
   }
 }
