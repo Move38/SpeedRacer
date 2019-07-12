@@ -90,7 +90,8 @@ void looseLoop() {
   if (!isAlone()) {
     //so I look at all faces, see what my options are
     bool foundRoadNeighbor = false;
-    byte currentChoice = random(5);
+    bool foundLooseNeighbor = false;
+    byte currentChoice;
     FOREACH_FACE(f) {
       //should I still be looking?
       if (!foundRoadNeighbor) {//only look if I haven't found a road neighbor
@@ -100,6 +101,7 @@ void looseLoop() {
             foundRoadNeighbor = true;
             currentChoice = f;
           } else if (getRoadState(neighborData) == LOOSE) {
+            foundLooseNeighbor = true;
             currentChoice = f;
           }
         }
@@ -107,12 +109,14 @@ void looseLoop() {
       faceRoadInfo[f] = SIDEWALK;
     }
 
-    //we can be confident that if there's a road neighbor, it's been chosen
-    //failing that, a loose neighbor has been chosen
-    //failing that, it's just random
-    faceRoadInfo[currentChoice] = ROAD;
-    completeRoad(currentChoice);
-    isLoose = false;
+    //if we have found any legit neighbor, we can transition out of loose
+    if (foundRoadNeighbor || foundLooseNeighbor) {
+      faceRoadInfo[currentChoice] = ROAD;
+      completeRoad(currentChoice);
+      isLoose = false;
+    } else {
+      //TODO: error state for bad placement
+    }
   }
 }
 
