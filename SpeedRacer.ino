@@ -106,14 +106,17 @@ void looseLoop() {
           }
         }
       }
-      faceRoadInfo[f] = SIDEWALK;
     }
 
     //if we have found any legit neighbor, we can transition out of loose
     if (foundRoadNeighbor || foundLooseNeighbor) {
+      FOREACH_FACE(f) {
+        faceRoadInfo[f] = SIDEWALK;
+      }
       faceRoadInfo[currentChoice] = ROAD;
       completeRoad(currentChoice);
       isLoose = false;
+
     } else {
       //TODO: error state for bad placement
     }
