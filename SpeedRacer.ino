@@ -524,8 +524,8 @@ void graphics() {
       // draw the road
       if (faceRoadInfo[f] == ROAD) {
         if (millis() - timeCarPassed[f] < FADE_ROAD_DURATION + FADE_DURATION) {
-          byte roadBrightness = (millis() - timeCarPassed[f] - FADE_DURATION)/2;
-          setColorOnFace(dim(YELLOW,roadBrightness), f);
+          byte roadBrightness = (millis() - timeCarPassed[f] - FADE_DURATION) / 2;
+          setColorOnFace(dim(YELLOW, roadBrightness), f);
         }
         else {
           setColorOnFace(YELLOW, f);
@@ -617,28 +617,19 @@ void shuffleSearchOrder() {
 */
 
 void standbyGraphics() {
+
   // circle around with a trail
   // 2 with trails on opposite sides
   long rotation = (millis() / 3) % 360;
   byte head = rotation / 60;
-  byte brightness;
 
   FOREACH_FACE(f) {
 
     byte distFromHead = (6 + head - f) % 6; // returns # of positions away from the head
-    long degFromHead = (360 + rotation - 60 * f) % 360; // returns degrees away from the head
 
-    if (distFromHead >= 3) {
-      distFromHead -= 3;
-      degFromHead -= 180;
+    if (distFromHead == 0 || distFromHead == 3) {
+      setColorOnFace(YELLOW, f);
     }
-
-    if (distFromHead < 2) {
-      brightness = 255 - map(degFromHead, 0, 120, 0, 255); // scale the brightness to 8 bits and dimmer based on distance from head
-    } else {
-      brightness = 0; // don't show past the tail of the snake
-    }
-    setFaceColor(f, dim(YELLOW, brightness));
   }
 }
 
@@ -676,17 +667,17 @@ bool didCarPassFace(byte face, byte pos, byte from, byte to) {
     }
   }
 
-  //  else if ( (from + 6 - to) % 6 == 4 ) {
-  //    // we are turning left
-  //    switch ( faceRotated ) { //... rotate to the correct direction
-  //      case 0: center = 5;  break;
-  //      case 1: center = 25;  break;
-  //      case 2: center = 95;  break;
-  //      case 3: center = 75; break;
-  //      case 4: center = 50;  break;
-  //      case 5: center = 25; break;
-  //    }
-  //  }
+  else if ( (from + 6 - to) % 6 == 4 ) {
+    // we are turning left
+    switch ( faceRotated ) { //... rotate to the correct direction
+      case 0: center = 5;  break;
+      case 1: center = 25;  break;
+      case 2: center = 95;  break;
+      case 3: center = 75; break;
+      case 4: center = 50;  break;
+      case 5: center = 25; break;
+    }
+  }
 
   // if our car position is past our center,
   // great, we have had the car pass us
