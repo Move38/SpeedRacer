@@ -23,6 +23,11 @@ byte handshakeState[6];
 Timer datagramTimeout;
 #define DATAGRAM_TIMEOUT_LIMIT 150
 
+byte turns[3][6] = { {5, 25, 50, 75, 95, 25},
+                {5, 33, 66, 95, 66, 33},
+                {5, 25, 95, 75, 50, 25}
+              };
+
 bool isLoose = true;
 
 bool hasDirection = false;
@@ -39,6 +44,8 @@ byte carBrightnessOnFace[6];
 #define FADE_DURATION       2500
 #define FADE_ROAD_DURATION  500
 #define CRASH_DURATION      600
+
+uint32_t timeOfShockwave = 0;
 
 byte currentSpeed = 1;
 
@@ -66,15 +73,11 @@ Timer transitTimer;
 byte carHues[4] = {60, 90, 120, 150}; // TODO: Set these colors purposefully
 byte currentCarHue = 0; // index of the car color
 
-word carTime[6];
-byte carBri[6];
-
 bool crashHere = false;
 uint32_t timeOfCrash = 0;
 Timer crashTimer;
 #define CRASH_TIME 2500
 
-Timer entranceBlinkTimer;
 #define CAR_FADE_IN_DIST   200   // kind of like headlights
 
 enum ShockwaveStates {
@@ -325,8 +328,6 @@ void goLoose() {
     isCarPassed[f] = false;
     timeCarPassed[f] = 0;
     carBrightnessOnFace[f] = 0;
-    carTime[f] = 0;
-    carBri[f] = 0;
   }
 
   loseCar();
@@ -430,6 +431,7 @@ void roadLoopCar() {
 
 void crashBlink() {
   shockwaveState = SHOCKWAVE;
+  timeOfShockwave = millis();
   isLoose = false;
   timeOfCrash = millis();
   crashHere = true;
@@ -482,6 +484,7 @@ void shockwaveLoop() {
   if (shockwaveState == INERT) {
     if (bShock) {
       shockwaveState = SHOCKWAVE;
+      timeOfShockwave = millis();
     }
   }
   else if (shockwaveState == SHOCKWAVE) {
@@ -557,8 +560,15 @@ void graphics() {
     standbyGraphics();
   }
 
-  if (shockwaveState != INERT) {
-    setColor(ORANGE);
+  if (millis() - timeOfShockwave < 255) {
+    setColor(dim(ORANGE, 255 - ((millis() - timeOfShockwave))));  // should really be 3x as long, with a delay for the travel of the effect
+  }
+
+  if ( millis() - timeOfCrash < CRASH_TIME ) {
+    // show fiery wreckage
+    byte bri = 255 - map(millis() - timeOfCrash, 0, CRASH_TIME, 0, 255);
+    setColor(dim(RED, bri));
+    //    crashGraphics();
   }
 }
 
@@ -644,44 +654,9 @@ bool didCarPassFace(byte face, byte pos, byte from, byte to) {
   // are we going straight, turning left, or turning right
   byte center;
   byte faceRotated = (6 + face - from) % 6;
-
-  if ( (from + 6 - to) % 6 == 3 ) {
-    switch ( faceRotated ) { //... rotate to the correct direction
-      case 0: center = 5;  break;
-      case 1: center = 33; break;
-      case 2: center = 67; break;
-      case 3: center = 95;  break;
-      case 4: center = 67; break;
-      case 5: center = 33; break;
-    }
-  }
-  else if ( (from + 6 - to) % 6 == 2 ) {
-    // we are turning right
-    switch ( faceRotated ) { //... rotate to the correct direction
-      case 0: center = 5;  break;
-      case 1: center = 25; break;
-      case 2: center = 50;  break;
-      case 3: center = 75; break;
-      case 4: center = 95;  break;
-      case 5: center = 25;  break;
-    }
-  }
-
-  else if ( (from + 6 - to) % 6 == 4 ) {
-    // we are turning left
-    switch ( faceRotated ) { //... rotate to the correct direction
-      case 0: center = 5;  break;
-      case 1: center = 25;  break;
-      case 2: center = 95;  break;
-      case 3: center = 75; break;
-      case 4: center = 50;  break;
-      case 5: center = 25; break;
-    }
-  }
-
-  // if our car position is past our center,
-  // great, we have had the car pass us
-  return pos > center;
+  byte dir = ((from + 6 - to) % 6) - 2;
+  
+  return pos > turns[dir][faceRotated];
 }
 
 void crashGraphics() {
