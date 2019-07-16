@@ -23,10 +23,10 @@ byte handshakeState[6];
 Timer datagramTimeout;
 #define DATAGRAM_TIMEOUT_LIMIT 150
 
-byte turns[3][6] = { {5, 25, 50, 75, 95, 25},
-                {5, 33, 66, 95, 66, 33},
-                {5, 25, 95, 75, 50, 25}
-              };
+byte turns[3][6] = { {5, 25, 50, 75, 95, 25}, // left hand turn
+                     {5, 33, 66, 95, 66, 33}, // straight away
+                     {5, 25, 95, 75, 50, 25}  // right hand turn
+                   };
 
 bool isLoose = true;
 
