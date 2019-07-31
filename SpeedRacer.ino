@@ -41,9 +41,9 @@ bool isCarPassed[6];
 uint32_t timeCarPassed[6];
 byte carBrightnessOnFace[6];
 
-#define FADE_DURATION       2500
+#define FADE_DURATION       800
 #define FADE_ROAD_DURATION  500
-#define CRASH_DURATION      600
+#define CRASH_DURATION      2000
 
 uint32_t timeOfShockwave = 0;
 
@@ -638,7 +638,7 @@ void standbyGraphics() {
     byte distFromHead = (6 + head - f) % 6; // returns # of positions away from the head
 
     if (distFromHead == 0 || distFromHead == 3) {
-      setColorOnFace(YELLOW, f);
+      setColorOnFace(ORANGE, f);
     }
   }
 }
