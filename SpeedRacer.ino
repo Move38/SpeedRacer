@@ -70,7 +70,7 @@ word currentTransitTime;
 
 Timer transitTimer;
 
-byte carHues[4] = {57, 111, 140, 189}; // TODO: Set these colors purposefully
+byte carHues[4] = {80, 111, 160, 215}; // TODO: Set these colors purposefully
 byte currentCarHue = 0; // index of the car color
 
 bool crashHere = false;
@@ -561,7 +561,7 @@ void graphics() {
   }
 
   if (millis() - timeOfShockwave < 500) {
-    Color shockwaveColor = makeColorHSB((millis()-timeOfShockwave)/12, 255, 255);
+    Color shockwaveColor = makeColorHSB((millis() - timeOfShockwave) / 12, 255, 255);
     setColorOnFace(shockwaveColor, entranceFace); // should really be 3x as long, with a delay for the travel of the effect
     setColorOnFace(shockwaveColor, exitFace);
   }
@@ -569,10 +569,12 @@ void graphics() {
   if ( millis() - timeOfCrash < CRASH_TIME ) {
     setColor(RED);
     // show fiery wreckage
-//    FOREACH_FACE(f) {
-//      byte bri = 200 - map(millis() - timeOfCrash, 0, CRASH_TIME, 0, 200) + random(55);
-//      setColorOnFace(makeColorHSB(0, random(55) + 200, bri), f);
-//    }
+    FOREACH_FACE(f) {
+      byte shakiness = map(millis() - timeOfCrash, 0, CRASH_TIME, 0, 30);
+      //byte bri = 200 - map(millis() - timeOfCrash, 0, CRASH_TIME, 0, 200) + random(55);
+      //setColorOnFace(makeColorHSB(0, random(55) + 200, bri), f);
+      setColorOnFace(makeColorHSB(30 - shakiness, 255, 255 - (shakiness * 6) - random(55)), f);
+    }
 
     //    crashGraphics();
   }
