@@ -11,7 +11,7 @@
 Drive as long and far as you can! 
 
 ## Setup
-Place your Blinks in a line. Double-click a Blink at the end of the line to spawn a car. The car will start racing down the road, slowly, at first.
+Place your Blinks in a line. Click a Blink at the end of the line to spawn a car. The car will start racing down the road, slowly, at first.  Double-click to make the car start much faster.
 
 ## Gameplay
 Keep building road ahead of the car, it needs to be attached in the direction that the road is saying it needs to go. i.e. place a Blink at the end of the road with the yellow light on. Once the car has entered a new Blink, you can remove it and then place it at the end the car is racing towards. Keep providing road ahead, the car gets faster the farther it gets. Get your Blinks into a perfect loop and you win...
