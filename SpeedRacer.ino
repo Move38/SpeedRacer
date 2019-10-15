@@ -198,15 +198,7 @@ void completeRoad(byte startFace) {
 }
 
 bool isValidExit(byte startFace, byte exitFace) {
-  if (exitFace == (startFace + 2) % 6) {
-    return true;
-  } else if (exitFace == (startFace + 3) % 6) {
-    return true;
-  } else if (exitFace == (startFace + 4) % 6) {
-    return true;
-  } else {
-    return false;
-  }
+  return (exitFace >= (startFace + 2) % 6 && exitFace <= (startFace + 4) % 6);
 }
 
 void roadLoopNoCar() {
@@ -464,7 +456,6 @@ void crashLoop() {
 void shockwaveLoop() {
   bool bInert = false;
   bool bShock = false;
-  bool bTrans = false;
 
   FOREACH_FACE(f) {
     if (!isValueReceivedOnFaceExpired(f)) {
@@ -474,9 +465,6 @@ void shockwaveLoop() {
       }
       else if (state == SHOCKWAVE) {
         bShock = true;
-      }
-      else if (state == TRANSITION) {
-        bTrans = true;
       }
     }
   }
@@ -550,7 +538,7 @@ void graphics() {
         setColorOnFace(makeColorHSB(carHues[currentCarHue], 255, carBrightnessOnFace[f]), f);
       }
       else {
-        setColorOnFace(makeColorHSB(carHues[currentCarHue], 0, carBrightnessOnFace[f]), f);
+        setColorOnFace(dim(WHITE, carBrightnessOnFace[f]), f);
       }
 
     }
