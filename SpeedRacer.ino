@@ -451,25 +451,23 @@ void easySetup() {
   // if Blink has 1 neighbor, set to entrance, make up exit
   // if Blink has 2 neighbors, set to entrance and exit
 
-  bool hasEntrance = false;
-  bool hasExit = false;
+  bool hasFirstRoad = false;
+  bool hasSecondRoad = false;
   FOREACH_FACE(f) {
     faceRoadInfo[f] = SIDEWALK;
-    if (!isValueReceivedOnFaceExpired(f) && !hasExit) {
-      if (!hasEntrance) {
-        entranceFace = f;
+    if (!isValueReceivedOnFaceExpired(f) && !hasSecondRoad) {
+      if (!hasFirstRoad) {
         faceRoadInfo[f] = ROAD;
-        hasEntrance = true;
+        hasFirstRoad = true;
       }
       else {
-        exitFace = f;
         faceRoadInfo[f] = ROAD;
-        hasExit = true;
+        hasSecondRoad = true;
       }
     }
   }
 
-  if (!hasExit) {
+  if (!hasSecondRoad) {
     exitFace = (entranceFace + 3) % 6;
     faceRoadInfo[exitFace] = ROAD;
   }
