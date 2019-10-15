@@ -55,8 +55,6 @@ enum CarClass {
   BOOSTED
 };
 
-byte searchOrder[6] = {0, 1, 2, 3, 4, 5}; // used for searching faces, needs to be shuffled
-
 byte currentCarClass = STANDARD;
 
 #define SPEED_INCREMENTS_STANDARD 35
@@ -94,7 +92,6 @@ byte shockwaveState = INERT;
 
 void setup() {
   randomize();
-  shuffleSearchOrder();
 }
 
 /*
@@ -199,7 +196,15 @@ void completeRoad(byte startFace) {
 }
 
 bool isValidExit(byte startFace, byte exitFace) {
-  return (exitFace >= (startFace + 2) % 6 && exitFace <= (startFace + 4) % 6);
+  if (exitFace == (startFace + 2) % 6) {
+    return true;
+  } else if (exitFace == (startFace + 3) % 6) {
+    return true;
+  } else if (exitFace == (startFace + 4) % 6) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 void roadLoopNoCar() {
@@ -258,9 +263,20 @@ void roadLoopNoCar() {
     }
   }
 
+  //check all neighbors to make sure there is something besides empties or sidewalks facing you
+  bool foundLegitNeighbor = false;
+  FOREACH_FACE(f) {
+    if (faceRoadInfo[f] == ROAD) {//this is a face I think could or should be a road
+      if (!isValueReceivedOnFaceExpired(f)) { //neighbor!
+        if (getRoadState(getLastValueReceivedOnFace(f)) != SIDEWALK) { //this is a legit neighbor
+          foundLegitNeighbor = true;
+        }
+      }
+    }
+  }
 
-  //if you become alone, GO LOOSE
-  if (isAlone()) {
+  //if you are (functionally) alone, GO LOOSE
+  if (!foundLegitNeighbor) {
     goLoose();
   }
 
@@ -276,8 +292,7 @@ void roadLoopNoCar() {
 }
 
 void spawnCar(byte carClass) {
-  FOREACH_FACE(face) {
-    byte f = searchOrder[face];
+  FOREACH_FACE(f) {
     if (!hasDirection) {
       if (faceRoadInfo[f] == ROAD) {//this could be my exit
         if (!isValueReceivedOnFaceExpired(f)) {//there is someone there
@@ -310,7 +325,6 @@ void spawnCar(byte carClass) {
       }
     }
   }
-  shuffleSearchOrder(); // thanks random search order, next.
 }
 
 void goLoose() {
@@ -603,24 +617,6 @@ word getMaxTransitTime() {
   }
   else {
     return MAX_TRANSIT_TIME_BOOSTED;
-  }
-}
-
-/*
-   RANDOMIZE OUR SEARCH ORDER
-   reference: http://www.cplusplus.com/reference/algorithm/random_shuffle/
-*/
-
-void shuffleSearchOrder() {
-
-  for (byte i = 5; i > 0; i--) {
-    // start with the right most, replace it with one of the 5 to the left
-    // then move one to the left, and do this with the 4 to the left. 3, 2, 1
-    byte swapA = i;
-    byte swapB = random(i - 1);
-    byte temp = searchOrder[swapA];
-    searchOrder[swapA] = searchOrder[swapB];
-    searchOrder[swapB] = temp;
   }
 }
 
