@@ -80,11 +80,7 @@ Timer crashTimer;
 
 #define CAR_FADE_IN_DIST   200   // kind of like headlights
 
-enum ShockwaveStates {
-  INERT,
-  SHOCKWAVE,
-  TRANSITION
-};
+enum ShockwaveStates { INERT, SHOCKWAVE, TRANSITION, EASY_SETUP };
 byte shockwaveState = INERT;
 
 /*
@@ -101,6 +97,11 @@ void setup() {
 */
 
 void loop() {
+  // on double click we send a message to all connected pieces to propogate an easy setup road
+  if (buttonDoubleClicked()) {
+    easySetup();
+  }
+
   //run loops
   if (isLoose) {
     looseLoop();
@@ -126,7 +127,7 @@ void loop() {
 
   //clear button presses
   buttonSingleClicked();
-  buttonDoubleClicked();
+  buttonMultiClicked();
 }
 
 void looseLoop() {
@@ -198,15 +199,7 @@ void completeRoad(byte startFace) {
 }
 
 bool isValidExit(byte startFace, byte exitFace) {
-  if (exitFace == (startFace + 2) % 6) {
-    return true;
-  } else if (exitFace == (startFace + 3) % 6) {
-    return true;
-  } else if (exitFace == (startFace + 4) % 6) {
-    return true;
-  } else {
-    return false;
-  }
+  return (exitFace >= (startFace + 2) % 6 && exitFace <= (startFace + 4) % 6);
 }
 
 void roadLoopNoCar() {
@@ -276,7 +269,7 @@ void roadLoopNoCar() {
     spawnCar(STANDARD);
   }
 
-  if (buttonDoubleClicked()) {
+  if (buttonMultiClicked()) {
     spawnCar(BOOSTED);
   }
 
@@ -449,6 +442,43 @@ void crashLoop() {
 }
 
 /*
+   Easy Road Setup
+*/
+void easySetup() {
+  
+  shockwaveState = EASY_SETUP;  // first let's establish our state
+  
+  // if Blink has 1 neighbor, set to entrance, make up exit
+  // if Blink has 2 neighbors, set to entrance and exit
+
+  bool hasEntrance = false;
+  bool hasExit = false;
+  FOREACH_FACE(f) {
+    faceRoadInfo[f] = SIDEWALK;
+    if (!isValueReceivedOnFaceExpired(f) && !hasExit) {
+      if (!hasEntrance) {
+        entranceFace = f;
+        faceRoadInfo[f] = ROAD;
+        hasEntrance = true;
+      }
+      else {
+        exitFace = f;
+        faceRoadInfo[f] = ROAD;
+        hasExit = true;
+      }
+    }
+  }
+
+  if (!hasExit) {
+    exitFace = (entranceFace + 3) % 6;
+    faceRoadInfo[exitFace] = ROAD;
+  }
+
+  // cool we have a connected road based on our existing connections now
+  // hopefully the user just lined them up in a straight line when they trigger easy setup :)
+}
+
+/*
   This function does the following:
 
   if inert
@@ -464,7 +494,7 @@ void crashLoop() {
 void shockwaveLoop() {
   bool bInert = false;
   bool bShock = false;
-  bool bTrans = false;
+  bool bEasy = false;
 
   FOREACH_FACE(f) {
     if (!isValueReceivedOnFaceExpired(f)) {
@@ -475,8 +505,8 @@ void shockwaveLoop() {
       else if (state == SHOCKWAVE) {
         bShock = true;
       }
-      else if (state == TRANSITION) {
-        bTrans = true;
+      else if (state == EASY_SETUP) {
+        bEasy = true;
       }
     }
   }
@@ -486,14 +516,17 @@ void shockwaveLoop() {
       shockwaveState = SHOCKWAVE;
       timeOfShockwave = millis();
     }
+    if (bEasy) {
+      easySetup();  // do it :)
+    }
   }
-  else if (shockwaveState == SHOCKWAVE) {
+  else if (shockwaveState == SHOCKWAVE || shockwaveState == EASY_SETUP) {
     if (!bInert) {
       shockwaveState = TRANSITION;
     }
   }
   else if (shockwaveState == TRANSITION) {
-    if (!bShock) {
+    if (!bShock && !bEasy) {
       shockwaveState = INERT;
     }
   }
@@ -550,7 +583,7 @@ void graphics() {
         setColorOnFace(makeColorHSB(carHues[currentCarHue], 255, carBrightnessOnFace[f]), f);
       }
       else {
-        setColorOnFace(makeColorHSB(carHues[currentCarHue], 0, carBrightnessOnFace[f]), f);
+        setColorOnFace(dim(WHITE, carBrightnessOnFace[f]), f);
       }
 
     }
@@ -561,7 +594,7 @@ void graphics() {
   }
 
   if (millis() - timeOfShockwave < 500) {
-    Color shockwaveColor = makeColorHSB((millis() - timeOfShockwave) / 12, 255, 255);
+    Color shockwaveColor = RED;//makeColorHSB((millis() - timeOfShockwave) / 12, 255, 255);
     setColorOnFace(shockwaveColor, entranceFace); // should really be 3x as long, with a delay for the travel of the effect
     setColorOnFace(shockwaveColor, exitFace);
   }
@@ -640,6 +673,8 @@ void standbyGraphics() {
   // 2 with trails on opposite sides
   word rotation = (millis() / 3) % 360;
   byte head = rotation / 60;
+
+  setColor(OFF);
 
   FOREACH_FACE(f) {
 
