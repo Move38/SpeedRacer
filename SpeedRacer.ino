@@ -29,7 +29,6 @@ byte turns[3][6] = { {5, 25, 50, 75, 95, 25}, // left hand turn
 };
 
 bool isLoose = true;
-#define LOOSE_WARNING_PULSE 1000
 
 bool hasDirection = false;
 byte entranceFace = 0;
@@ -82,7 +81,8 @@ Timer crashTimer;
 enum ShockwaveStates {
   INERT,
   SHOCKWAVE,
-  TRANSITION
+  TRANSITION,
+  EASY_SETUP
 };
 byte shockwaveState = INERT;
 
@@ -99,6 +99,11 @@ void setup() {
 */
 
 void loop() {
+  // on double click we send a message to all connected pieces to propogate an easy setup road
+  if (buttonDoubleClicked()) {
+    easySetup();
+  }
+
   //run loops
   if (isLoose) {
     looseLoop();
@@ -124,7 +129,7 @@ void loop() {
 
   //clear button presses
   buttonSingleClicked();
-  buttonDoubleClicked();
+  buttonMultiClicked();
 }
 
 void looseLoop() {
@@ -177,12 +182,14 @@ void completeRoad(byte startFace) {
       if (!foundRoadExit) {
         if (!isValueReceivedOnFaceExpired(f)) {//neighbor!
           byte neighborData = getLastValueReceivedOnFace(f);
-          if (getRoadState(neighborData) == ROAD) {
+          if (getRoadState(neighborData) == ROAD) {//first choice: a road
             foundRoadExit = true;
             currentChoice = f;
-          } else if (getRoadState(neighborData) == LOOSE) {
+          } else if (getRoadState(neighborData) == LOOSE) {//second choice: a loose blink
             currentChoice = f;
-          }
+          } else {//last choice: a blink (not an empty face)
+            currentChoice = f;
+          }//if none are chosen, it will just go with the randomly chosen face from before this loop
         }
       }
     }
@@ -196,15 +203,7 @@ void completeRoad(byte startFace) {
 }
 
 bool isValidExit(byte startFace, byte exitFace) {
-  if (exitFace == (startFace + 2) % 6) {
-    return true;
-  } else if (exitFace == (startFace + 3) % 6) {
-    return true;
-  } else if (exitFace == (startFace + 4) % 6) {
-    return true;
-  } else {
-    return false;
-  }
+  return ( dist(startFace, exitFace) >= 2 &&  dist(startFace, exitFace) <= 4 );
 }
 
 void roadLoopNoCar() {
@@ -285,7 +284,7 @@ void roadLoopNoCar() {
     spawnCar(STANDARD);
   }
 
-  if (buttonDoubleClicked()) {
+  if (buttonMultiClicked()) {
     spawnCar(BOOSTED);
   }
 
@@ -318,6 +317,12 @@ void spawnCar(byte carClass) {
             // launch car
             haveCar = true;
             resetIsCarPassed();
+            if (carClass == BOOSTED) {
+              currentSpeed = (buttonClickCount() * 10) - 29;
+              if (currentSpeed > SPEED_INCREMENTS_BOOSTED) {
+                currentSpeed = SPEED_INCREMENTS_BOOSTED;
+              }
+            }
             currentTransitTime = map(getSpeedIncrements() - currentSpeed, 0, getSpeedIncrements(), getMinTransitTime(), getMaxTransitTime());
             transitTimer.set(currentTransitTime);
           }
@@ -471,6 +476,7 @@ void crashLoop() {
 void shockwaveLoop() {
   bool bInert = false;
   bool bShock = false;
+  bool bEasy = false;
 
   FOREACH_FACE(f) {
     if (!isValueReceivedOnFaceExpired(f)) {
@@ -481,6 +487,9 @@ void shockwaveLoop() {
       else if (state == SHOCKWAVE) {
         bShock = true;
       }
+      else if (state == EASY_SETUP) {
+        bEasy = true;
+      }
     }
   }
 
@@ -489,14 +498,17 @@ void shockwaveLoop() {
       shockwaveState = SHOCKWAVE;
       timeOfShockwave = millis();
     }
+    if (bEasy) {
+      easySetup();  // do it :)
+    }
   }
-  else if (shockwaveState == SHOCKWAVE) {
+  else if (shockwaveState == SHOCKWAVE || shockwaveState == EASY_SETUP) {
     if (!bInert) {
       shockwaveState = TRANSITION;
     }
   }
   else if (shockwaveState == TRANSITION) {
-    if (!bShock) {
+    if (!bShock && !bEasy) {
       shockwaveState = INERT;
     }
   }
@@ -536,8 +548,7 @@ void graphics() {
         else {
           //determine if this is a loose end
           if (isValueReceivedOnFaceExpired(f) || getRoadState(getLastValueReceivedOnFace(f)) != ROAD) { //no neighbor or non-road neighbor
-            byte warningHue = map((millis() % LOOSE_WARNING_PULSE), 0, LOOSE_WARNING_PULSE, 0, 30);
-            setColorOnFace(makeColorHSB(warningHue, 255, 255), f);
+            setColorOnFace(RED, f);
           } else {
             setColorOnFace(YELLOW, f);
           }
@@ -634,12 +645,16 @@ void standbyGraphics() {
 
   FOREACH_FACE(f) {
 
-    byte distFromHead = (6 + head - f) % 6; // returns # of positions away from the head
-
-    if (distFromHead == 0 || distFromHead == 3) {
+    if (dist(head, f) == 0 || dist(head, f) == 3) {
       setColorOnFace(ORANGE, f);
     }
   }
+}
+
+// returns # of positions away
+// closed loop 0-5
+byte dist(byte a, byte b) {
+  return (6 + a - b) % 6;
 }
 
 void resetIsCarPassed() {
@@ -656,4 +671,12 @@ bool didCarPassFace(byte face, byte pos, byte from, byte to) {
   byte dir = ((from + 6 - to) % 6) - 2;
 
   return pos > turns[dir][faceRotated];
+}
+
+/*
+   Easy Road Setup
+*/
+void easySetup() {
+  goLoose();
+  shockwaveState = EASY_SETUP;  // first let's establish our state
 }
