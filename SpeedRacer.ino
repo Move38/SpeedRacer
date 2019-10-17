@@ -29,7 +29,6 @@ byte turns[3][6] = { {5, 25, 50, 75, 95, 25}, // left hand turn
 };
 
 bool isLoose = true;
-#define LOOSE_WARNING_PULSE 1000
 
 bool hasDirection = false;
 byte entranceFace = 0;
@@ -549,8 +548,6 @@ void graphics() {
         else {
           //determine if this is a loose end
           if (isValueReceivedOnFaceExpired(f) || getRoadState(getLastValueReceivedOnFace(f)) != ROAD) { //no neighbor or non-road neighbor
-            //            byte warningHue = map((millis() % LOOSE_WARNING_PULSE), 0, LOOSE_WARNING_PULSE, 0, 30);
-            //            setColorOnFace(makeColorHSB(warningHue, 255, 255), f);
             setColorOnFace(RED, f);
           } else {
             setColorOnFace(YELLOW, f);
