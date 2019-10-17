@@ -29,6 +29,7 @@ byte turns[3][6] = { {5, 25, 50, 75, 95, 25}, // left hand turn
 };
 
 bool isLoose = true;
+#define LOOSE_WARNING_PULSE 1000
 
 bool hasDirection = false;
 byte entranceFace = 0;
@@ -54,8 +55,6 @@ enum CarClass {
   BOOSTED
 };
 
-byte searchOrder[6] = {0, 1, 2, 3, 4, 5}; // used for searching faces, needs to be shuffled
-
 byte currentCarClass = STANDARD;
 
 #define SPEED_INCREMENTS_STANDARD 35
@@ -80,7 +79,12 @@ Timer crashTimer;
 
 #define CAR_FADE_IN_DIST   200   // kind of like headlights
 
-enum ShockwaveStates { INERT, SHOCKWAVE, TRANSITION, EASY_SETUP };
+enum ShockwaveStates {
+  INERT,
+  SHOCKWAVE,
+  TRANSITION,
+  EASY_SETUP
+};
 byte shockwaveState = INERT;
 
 /*
@@ -89,7 +93,6 @@ byte shockwaveState = INERT;
 
 void setup() {
   randomize();
-  shuffleSearchOrder();
 }
 
 /*
@@ -101,7 +104,7 @@ void loop() {
   if (buttonDoubleClicked()) {
     easySetup();
   }
-
+  
   //run loops
   if (isLoose) {
     looseLoop();
@@ -199,7 +202,7 @@ void completeRoad(byte startFace) {
 }
 
 bool isValidExit(byte startFace, byte exitFace) {
-  return (exitFace >= (startFace + 2) % 6 && exitFace <= (startFace + 4) % 6);
+  return ( dist(startFace,exitFace) >= 2 &&  dist(startFace,exitFace) <= 4 );
 }
 
 void roadLoopNoCar() {
@@ -239,7 +242,7 @@ void roadLoopNoCar() {
                   }
                   haveCar = true;
                   resetIsCarPassed();
-                  currentTransitTime = map(getSpeedIncrements() - currentSpeed, 0, getSpeedIncrements(), getMinTransitTime(), getMaxTransitTime());
+                  currentTransitTime = 1000;//map(getSpeedIncrements() - currentSpeed, 0, getSpeedIncrements(), getMinTransitTime(), getMaxTransitTime());
                   transitTimer.set(currentTransitTime);
 
                   hasDirection = true;
@@ -258,9 +261,20 @@ void roadLoopNoCar() {
     }
   }
 
+  //check all neighbors to make sure there is something besides empties or sidewalks facing you
+  bool foundLegitNeighbor = false;
+  FOREACH_FACE(f) {
+    if (faceRoadInfo[f] == ROAD) {//this is a face I think could or should be a road
+      if (!isValueReceivedOnFaceExpired(f)) { //neighbor!
+        if (getRoadState(getLastValueReceivedOnFace(f)) != SIDEWALK) { //this is a legit neighbor
+          foundLegitNeighbor = true;
+        }
+      }
+    }
+  }
 
-  //if you become alone, GO LOOSE
-  if (isAlone()) {
+  //if you are (functionally) alone, GO LOOSE
+  if (!foundLegitNeighbor) {
     goLoose();
   }
 
@@ -276,8 +290,7 @@ void roadLoopNoCar() {
 }
 
 void spawnCar(byte carClass) {
-  FOREACH_FACE(face) {
-    byte f = searchOrder[face];
+  FOREACH_FACE(f) {
     if (!hasDirection) {
       if (faceRoadInfo[f] == ROAD) {//this could be my exit
         if (!isValueReceivedOnFaceExpired(f)) {//there is someone there
@@ -310,7 +323,6 @@ void spawnCar(byte carClass) {
       }
     }
   }
-  shuffleSearchOrder(); // thanks random search order, next.
 }
 
 void goLoose() {
@@ -442,41 +454,6 @@ void crashLoop() {
 }
 
 /*
-   Easy Road Setup
-*/
-void easySetup() {
-  
-  shockwaveState = EASY_SETUP;  // first let's establish our state
-  
-  // if Blink has 1 neighbor, set to entrance, make up exit
-  // if Blink has 2 neighbors, set to entrance and exit
-
-  bool hasFirstRoad = false;
-  bool hasSecondRoad = false;
-  FOREACH_FACE(f) {
-    faceRoadInfo[f] = SIDEWALK;
-    if (!isValueReceivedOnFaceExpired(f) && !hasSecondRoad) {
-      if (!hasFirstRoad) {
-        faceRoadInfo[f] = ROAD;
-        hasFirstRoad = true;
-      }
-      else {
-        faceRoadInfo[f] = ROAD;
-        hasSecondRoad = true;
-      }
-    }
-  }
-
-  if (!hasSecondRoad) {
-    exitFace = (entranceFace + 3) % 6;
-    faceRoadInfo[exitFace] = ROAD;
-  }
-
-  // cool we have a connected road based on our existing connections now
-  // hopefully the user just lined them up in a straight line when they trigger easy setup :)
-}
-
-/*
   This function does the following:
 
   if inert
@@ -562,7 +539,14 @@ void graphics() {
           setColorOnFace(dim(YELLOW, roadBrightness), f);
         }
         else {
-          setColorOnFace(YELLOW, f);
+          //determine if this is a loose end
+          if (isValueReceivedOnFaceExpired(f) || getRoadState(getLastValueReceivedOnFace(f)) != ROAD) { //no neighbor or non-road neighbor
+//            byte warningHue = map((millis() % LOOSE_WARNING_PULSE), 0, LOOSE_WARNING_PULSE, 0, 30);
+//            setColorOnFace(makeColorHSB(warningHue, 255, 255), f);
+            setColorOnFace(RED, f);
+          } else {
+            setColorOnFace(YELLOW, f);
+          }
         }
       }
 
@@ -592,7 +576,7 @@ void graphics() {
   }
 
   if (millis() - timeOfShockwave < 500) {
-    Color shockwaveColor = RED;//makeColorHSB((millis() - timeOfShockwave) / 12, 255, 255);
+    Color shockwaveColor = makeColorHSB((millis() - timeOfShockwave) / 12, 255, 255);
     setColorOnFace(shockwaveColor, entranceFace); // should really be 3x as long, with a delay for the travel of the effect
     setColorOnFace(shockwaveColor, exitFace);
   }
@@ -604,7 +588,7 @@ void graphics() {
       byte shakiness = map(millis() - timeOfCrash, 0, CRASH_TIME, 0, 30);
       //byte bri = 200 - map(millis() - timeOfCrash, 0, CRASH_TIME, 0, 200) + random(55);
       //setColorOnFace(makeColorHSB(0, random(55) + 200, bri), f);
-      setColorOnFace(makeColorHSB(30 - shakiness, 255, 255 - (shakiness * 6) - random(55)), f);
+      setColorOnFace(ORANGE, f);//makeColorHSB(30 - shakiness, 255, 255 - (shakiness * 6) - random(55)), f);
     }
 
     //    crashGraphics();
@@ -643,24 +627,6 @@ word getMaxTransitTime() {
 }
 
 /*
-   RANDOMIZE OUR SEARCH ORDER
-   reference: http://www.cplusplus.com/reference/algorithm/random_shuffle/
-*/
-
-void shuffleSearchOrder() {
-
-  for (byte i = 5; i > 0; i--) {
-    // start with the right most, replace it with one of the 5 to the left
-    // then move one to the left, and do this with the 4 to the left. 3, 2, 1
-    byte swapA = i;
-    byte swapB = random(i - 1);
-    byte temp = searchOrder[swapA];
-    searchOrder[swapA] = searchOrder[swapB];
-    searchOrder[swapB] = temp;
-  }
-}
-
-/*
    GRAPHICS
    Fade out the car based on a trail length or timing fade away
 */
@@ -672,16 +638,18 @@ void standbyGraphics() {
   word rotation = (millis() / 3) % 360;
   byte head = rotation / 60;
 
-  setColor(OFF);
-
   FOREACH_FACE(f) {
 
-    byte distFromHead = (6 + head - f) % 6; // returns # of positions away from the head
-
-    if (distFromHead == 0 || distFromHead == 3) {
+    if (dist(head,f) == 0 || dist(head,f) == 3) {
       setColorOnFace(ORANGE, f);
     }
   }
+}
+
+// returns # of positions away
+// closed loop 0-5
+byte dist(byte a, byte b) {
+      return (6 + a - b) % 6;
 }
 
 void resetIsCarPassed() {
@@ -698,4 +666,41 @@ bool didCarPassFace(byte face, byte pos, byte from, byte to) {
   byte dir = ((from + 6 - to) % 6) - 2;
 
   return pos > turns[dir][faceRotated];
+}
+
+/*
+   Easy Road Setup
+*/
+void easySetup() {
+  
+  shockwaveState = EASY_SETUP;  // first let's establish our state
+  
+  // if Blink has 1 neighbor, set to entrance, make up exit
+  // if Blink has 2 neighbors, set to entrance and exit
+
+  bool hasFirstRoad = false;
+  bool hasSecondRoad = false;
+  byte first;
+  FOREACH_FACE(f) {
+    faceRoadInfo[f] = SIDEWALK;
+    if (!isValueReceivedOnFaceExpired(f) && !hasSecondRoad) {
+      if (!hasFirstRoad) {
+        faceRoadInfo[f] = ROAD;
+        first = f;
+        hasFirstRoad = true;
+      }
+      else {
+        faceRoadInfo[f] = ROAD;
+        hasSecondRoad = true;
+      }
+    }
+  }
+
+  if (!hasSecondRoad) {
+    // get completing road here
+    faceRoadInfo[(first + 3)%6] = ROAD;
+  }
+
+  // cool we have a connected road based on our existing connections now
+  // hopefully the user just lined them up in a straight line when they trigger easy setup :)
 }
