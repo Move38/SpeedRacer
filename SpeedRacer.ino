@@ -15,6 +15,8 @@
     --------------------
 */
 
+byte lapsCountedTotal = 0;
+
 enum faceRoadStates {LOOSE, ROAD, SIDEWALK, CRASH};
 byte faceRoadInfo[6];
 
@@ -533,71 +535,78 @@ void graphics() {
   // clear buffer
   setColor(OFF);
 
-  FOREACH_FACE(f) {
-
-    // first draw the car fade
-    if (millis() - timeCarPassed[f] > FADE_DURATION) {
-      carBrightnessOnFace[f] = 0;
-
-      // draw the road
-      if (faceRoadInfo[f] == ROAD) {
-        if (millis() - timeCarPassed[f] < FADE_ROAD_DURATION + FADE_DURATION) {
-          byte roadBrightness = (millis() - timeCarPassed[f] - FADE_DURATION) / 2;
-          setColorOnFace(dim(YELLOW, roadBrightness), f);
-        }
-        else {
-          //determine if this is a loose end
-          if (isValueReceivedOnFaceExpired(f) || getRoadState(getLastValueReceivedOnFace(f)) != ROAD) { //no neighbor or non-road neighbor
-            setColorOnFace(RED, f);
-          } else {
-            setColorOnFace(YELLOW, f);
-          }
-        }
-      }
-
-    }
-    else {
-      // in the beginning, quick fade in
-      if (millis() - timeCarPassed[f] > CAR_FADE_IN_DIST ) {
-        carBrightnessOnFace[f] = 255 - map(millis() - timeCarPassed[f] - CAR_FADE_IN_DIST, 0, FADE_DURATION - CAR_FADE_IN_DIST, 0, 255);
-      }
-      else {
-        carBrightnessOnFace[f] = map(millis() - timeCarPassed[f], 0, CAR_FADE_IN_DIST, 0, 255);
-      }
-
-      // Draw our car
-      if (currentCarClass == STANDARD) {
-        setColorOnFace(makeColorHSB(carHues[currentCarHue], 255, carBrightnessOnFace[f]), f);
-      }
-      else {
-        setColorOnFace(dim(WHITE, carBrightnessOnFace[f]), f);
-      }
-
-    }
+  // Show the number of times the car has passed
+  byte lapsCounted = lapsCountedTotal % 6;
+  for(byte i=0; i<lapsCounted; i++) {
+    setColorOnFace(BLUE, i);    
   }
-
-  if (isLoose) {
-    standbyGraphics();
-  }
-
-  if (millis() - timeOfShockwave < 500) {
-    Color shockwaveColor = makeColorHSB((millis() - timeOfShockwave) / 12, 255, 255);
-    setColorOnFace(shockwaveColor, entranceFace); // should really be 3x as long, with a delay for the travel of the effect
-    setColorOnFace(shockwaveColor, exitFace);
-  }
-
-  if ( millis() - timeOfCrash < CRASH_TIME ) {
-    setColor(RED);
-    // show fiery wreckage
-    FOREACH_FACE(f) {
-      byte shakiness = map(millis() - timeOfCrash, 0, CRASH_TIME, 0, 30);
-      //byte bri = 200 - map(millis() - timeOfCrash, 0, CRASH_TIME, 0, 200) + random(55);
-      //setColorOnFace(makeColorHSB(0, random(55) + 200, bri), f);
-      setColorOnFace(makeColorHSB(30 - shakiness, 255, 255 - (shakiness * 6) - random(55)), f);
-    }
-
-    //    crashGraphics();
-  }
+  
+//
+//  FOREACH_FACE(f) {
+//
+//    // first draw the car fade
+//    if (millis() - timeCarPassed[f] > FADE_DURATION) {
+//      carBrightnessOnFace[f] = 0;
+//
+//      // draw the road
+//      if (faceRoadInfo[f] == ROAD) {
+//        if (millis() - timeCarPassed[f] < FADE_ROAD_DURATION + FADE_DURATION) {
+//          byte roadBrightness = (millis() - timeCarPassed[f] - FADE_DURATION) / 2;
+//          setColorOnFace(dim(YELLOW, roadBrightness), f);
+//        }
+//        else {
+//          //determine if this is a loose end
+//          if (isValueReceivedOnFaceExpired(f) || getRoadState(getLastValueReceivedOnFace(f)) != ROAD) { //no neighbor or non-road neighbor
+//            setColorOnFace(RED, f);
+//          } else {
+//            setColorOnFace(YELLOW, f);
+//          }
+//        }
+//      }
+//
+//    }
+//    else {
+//      // in the beginning, quick fade in
+//      if (millis() - timeCarPassed[f] > CAR_FADE_IN_DIST ) {
+//        carBrightnessOnFace[f] = 255 - map(millis() - timeCarPassed[f] - CAR_FADE_IN_DIST, 0, FADE_DURATION - CAR_FADE_IN_DIST, 0, 255);
+//      }
+//      else {
+//        carBrightnessOnFace[f] = map(millis() - timeCarPassed[f], 0, CAR_FADE_IN_DIST, 0, 255);
+//      }
+//
+//      // Draw our car
+//      if (currentCarClass == STANDARD) {
+//        setColorOnFace(makeColorHSB(carHues[currentCarHue], 255, carBrightnessOnFace[f]), f);
+//      }
+//      else {
+//        setColorOnFace(dim(WHITE, carBrightnessOnFace[f]), f);
+//      }
+//
+//    }
+//  }
+//
+//  if (isLoose) {
+//    standbyGraphics();
+//  }
+//
+//  if (millis() - timeOfShockwave < 500) {
+//    Color shockwaveColor = makeColorHSB((millis() - timeOfShockwave) / 12, 255, 255);
+//    setColorOnFace(shockwaveColor, entranceFace); // should really be 3x as long, with a delay for the travel of the effect
+//    setColorOnFace(shockwaveColor, exitFace);
+//  }
+//
+//  if ( millis() - timeOfCrash < CRASH_TIME ) {
+//    setColor(RED);
+//    // show fiery wreckage
+//    FOREACH_FACE(f) {
+//      byte shakiness = map(millis() - timeOfCrash, 0, CRASH_TIME, 0, 30);
+//      //byte bri = 200 - map(millis() - timeOfCrash, 0, CRASH_TIME, 0, 200) + random(55);
+//      //setColorOnFace(makeColorHSB(0, random(55) + 200, bri), f);
+//      setColorOnFace(makeColorHSB(30 - shakiness, 255, 255 - (shakiness * 6) - random(55)), f);
+//    }
+//
+//    //    crashGraphics();
+//  }
 }
 
 /*
